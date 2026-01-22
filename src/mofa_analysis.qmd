@@ -1,0 +1,9 @@
+---
+title: "MOFA2 analysis of CPTAC-PDAC RNAseq and proteomics data"
+format: html
+---
+
+
+```{r}
+library(basilisk)
+```

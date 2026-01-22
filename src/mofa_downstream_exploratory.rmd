@@ -1,0 +1,168 @@
+---
+title: "Downstream exploration of MOFA CPTAC-PDAC RNA, proteome, and mutation data model"
+output: github_document
+---
+
+## Setup
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+# packages
+# In setup chunk, load all required packages
+library(MOFA2)
+library(tidyverse)
+library(GGally)
+```
+
+# Load MOFA model RNA and proteome data
+```{r load-model}
+# Load the MOFA model
+model_path <- "Results/MOFA_models/mofa_cptac_pdac_rna_proteome_model.hdf5"
+MOFAmodel <- load_model(model_path)
+summary(MOFAmodel)
+```
+
+## Load clinical metadata
+```{r load-clinical-metadata}
+clinical_df <- read.csv("Data/Metadata/metadata_merged_clinical_mol-phenotype_from_paper.csv", 
+                        row.names = 1, 
+                        stringsAsFactors = FALSE,
+                        na.strings = c("", " ", "NA", "N/A", "na", "null", "NULL", "NaN"))
+print(dim(clinical_df))
+head(clinical_df)
+```
+
+## Variance explained by factors and views
+```{r explore-factors}
+# Get variance explained
+var_explained <- get_variance_explained(MOFAmodel, as.data.frame = TRUE)
+print(var_explained)
+
+# Plot variance explained by each factor for each view
+plot_variance_explained(MOFAmodel)
+
+plot_variance_explained(MOFAmodel, x="view", y="factor", plot_total = TRUE)[[2]]
+
+# Plot factor values
+plot_factors(MOFAmodel, factors = 1:5, color_by = NULL)
+
+# Plot correlations between factors
+plot_factor_cor(MOFAmodel, factors = 1:5)
+
+# print factor correlations as a matrix
+factors_mat <- get_factors(MOFAmodel)[[1]]
+factor_cor_matrix <- cor(factors_mat)
+print(round(factor_cor_matrix, 2))
+```
+
+
+## Visualize factor values colored by clinical variables
+```{r visualize-factors-clinical}
+plot_factors(factors = 1:7, MOFAmodel, color_by = clinical_df$PurIST_Subtype) # check Factors 2,3,6
+plot_factors(factors = 1:7, MOFAmodel, color_by = clinical_df$Moffitt) # check Factors 6
+
+plot_factor(MOFAmodel, factors = c(1:7), color_by = clinical_df$PurIST_Subtype,
+            dot_size = 3, dodge = TRUE,
+            legend = FALSE,
+            add_violin = TRUE, violin_alpha = 0.25
+)
+
+plot_weights(MOFAmodel,
+  view = "Protein",
+  factor = 1,
+  nfeatures = 10,     # Number of features to highlight
+  scale = TRUE,          # Scale weights from -1 to 1
+  abs = FALSE             # Take the absolute value?
+)
+
+plot_top_weights(MOFAmodel,
+  view = "Protein",
+  factor = 1,
+  nfeatures = 10
+)
+```
+
+
+# Load MOFA model RNA, proteome, and mutation data 
+```{r load-model-v2}
+# Load the MOFA model
+model_path_v2 <- "Results/MOFA_models/mofa_cptac_pdac_rna_proteome_mutations_model.hdf5"
+MOFAmodel_v2 <- load_model(model_path_v2)
+summary(MOFAmodel_v2)
+```
+
+## Variance explained by factors and views
+```{r explore-factors-v2}
+# Get variance explained
+var_explained <- get_variance_explained(MOFAmodel_v2, as.data.frame = TRUE)
+print(var_explained)
+# Plot variance explained by each factor for each view
+plot_variance_explained(MOFAmodel_v2)
+
+plot_variance_explained(MOFAmodel_v2, x="view", y="factor", plot_total = TRUE)[[2]] 
+# Plot factor values
+plot_factors(MOFAmodel_v2, factors = 1:5, color_by = NULL)
+# Plot correlations between factors
+plot_factor_cor(MOFAmodel_v2, factors = 1:5)
+# print factor correlations as a matrix
+factors_mat <- get_factors(MOFAmodel_v2)[[1]]
+factor_cor_matrix <- cor(factors_mat)
+print(round(factor_cor_matrix, 2))
+```
+
+
+## Check training stats - Model v1 (RNA + Proteome)
+```{r training-stats-v1}
+cat("=== MOFAmodel (RNA + Proteome) ===\n")
+cat("Training stats available:", names(MOFAmodel@training_stats), "\n")
+cat("Converged:", MOFAmodel@training_stats$converged, "\n")
+cat("ELBO length:", length(MOFAmodel@training_stats$elbo), "\n")
+cat("First 10 ELBO values:\n")
+print(head(MOFAmodel@training_stats$elbo, 10))
+cat("Number of NaN values:", sum(is.nan(MOFAmodel@training_stats$elbo)), "\n\n")
+
+# Plot ELBO - remove NaN values
+elbo_vals <- MOFAmodel@training_stats$elbo
+valid_elbo <- !is.nan(elbo_vals) & !is.na(elbo_vals)
+if(sum(valid_elbo) > 1) {
+  elbo_df <- data.frame(iteration = which(valid_elbo),
+                        elbo = elbo_vals[valid_elbo])
+  print(ggplot(elbo_df, aes(x = iteration, y = elbo)) +
+    geom_line(color = "blue", size = 1) +
+    geom_point(color = "blue", size = 2) +
+    labs(title = "MOFAmodel Convergence (RNA + Proteome)",
+         subtitle = paste("Valid iterations:", nrow(elbo_df), "/ NaN iterations:", sum(!valid_elbo)),
+         x = "Iteration", y = "ELBO") +
+    theme_bw())
+} else {
+  cat("WARNING: Model has NaN values - training failed due to numerical instability!\n")
+}
+```
+
+## Check training stats - Model v2 (RNA + Proteome + Mutations)
+```{r training-stats-v2}
+cat("=== MOFAmodel_v2 (RNA + Proteome + Mutations) ===\n")
+cat("Training stats available:", names(MOFAmodel_v2@training_stats), "\n")
+cat("Converged:", MOFAmodel_v2@training_stats$converged, "\n")
+cat("ELBO length:", length(MOFAmodel_v2@training_stats$elbo), "\n")
+cat("First 10 ELBO values:\n")
+print(head(MOFAmodel_v2@training_stats$elbo, 10))
+cat("Last 10 ELBO values:\n")
+print(tail(MOFAmodel_v2@training_stats$elbo, 10))
+cat("Number of NaN values:", sum(is.nan(MOFAmodel_v2@training_stats$elbo)), "\n\n")
+
+# Plot ELBO - remove NaN values
+elbo_vals_v2 <- MOFAmodel_v2@training_stats$elbo
+valid_elbo_v2 <- !is.nan(elbo_vals_v2) & !is.na(elbo_vals_v2)
+if(sum(valid_elbo_v2) > 1) {
+  elbo_df_v2 <- data.frame(iteration = which(valid_elbo_v2),
+                           elbo = elbo_vals_v2[valid_elbo_v2])
+  print(ggplot(elbo_df_v2, aes(x = iteration, y = elbo)) +
+    geom_line(color = "darkgreen", size = 1) +
+    labs(title = "MOFAmodel_v2 Convergence (RNA + Proteome + Mutations)",
+         subtitle = paste("Total iterations:", nrow(elbo_df_v2)),
+         x = "Iteration", y = "ELBO") +
+    theme_bw())
+} else {
+  cat("WARNING: Model v2 has NaN values - training failed due to numerical instability!\n")
+}
+```
