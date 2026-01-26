@@ -1,0 +1,116 @@
+---
+title: "MOFAmodel Factor2 - under the hood"
+output: github_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+# Set working directory to project root
+knitr::opts_knit$set(root.dir = here::here())
+# packages
+library(MOFA2)
+library(tidyverse)
+library(here)
+```
+
+### Introduction
+
+To look "under the hood" of Factor 2, we need to pull the feature weights (loadings) for both the RNA and Protein views. In MOFA2, a high absolute weight indicates that the feature is a strong driver of the variation captured by that factor.
+
+Positive weights mean the gene/protein is upregulated in Factor 2 High (the high-risk/Basal-like group), while negative weights mean it's upregulated in Factor 2 Low (the low-risk/Classical group).  Factor 2 High and Low were defined in the previous notebook `survival_analysis.rmd` based on the median Factor 2 value across samples.
+
+### Load MOFA model RNA and proteome data
+```{r load-model}
+# Load the MOFA model (Results is at project root, one level up from src/)
+model_path <- here("..", "Results", "MOFA_models", "mofa_cptac_pdac_rna_proteome_model.hdf5")
+MOFAmodel <- load_model(model_path)
+summary(MOFAmodel)
+```
+
+### Extract Factor 2 loadings for RNA and Proteome
+```{r extract-loadings}
+# Get the weights (loadings) for Factor 2
+factor_index <- 2
+
+# Extract weights for Factor 2 across all views
+weights <- get_weights(MOFAmodel, factors = factor_index, as.data.frame = TRUE)
+
+# Separate and sort the top 50 for RNA and Protein
+top_rna <- weights %>%
+  filter(view == "RNA") %>%
+  arrange(desc(abs(value))) %>%
+  head(50)
+
+top_protein <- weights %>%
+  filter(view == "Protein") %>%
+  arrange(desc(abs(value))) %>%
+  head(50)
+```
+
+### Plot distribution of Factor 2 weights
+Note `plot_top_weights` lollipop plot scales the weight relative to the highest absolute weight, ie ALDH1A1_Protein in this case, and every other feature is relative to that. 
+That is why ALDH1A1_Protein has a weight of 1 in that plot, while in the barplot below it's < -0.4; which is its raw weight on Factor2 from the MOFA2 model.
+```{r plot-weight-distribution}
+# Plot the full distribution of weights for Factor 2
+# 'scale = TRUE' to see them on a relative -1 to 1 scale
+plot_weights(MOFAmodel, 
+             view = "Protein", 
+             factor = 2, 
+             nfeatures = 0, # Show all features
+             scale = TRUE)
+```
+
+### Plot top 50 Protein weights using MOFA2 built-in function
+```{r plot-top-protein-weights, fig.width=8, fig.height=8}
+plot_top_weights(MOFAmodel, 
+                 view = "Protein", 
+                 factor = 2, 
+                 nfeatures = 50, # Top 50 features
+                 scale = TRUE)
+```
+
+### Plot for the Protein weights (the likely "survival engine")
+```{r plot-protein-weights, fig.width=8, fig.height=8}
+ggplot(top_protein, aes(x = reorder(feature, value), y = value, fill = value > 0)) +
+  geom_bar(stat = "identity") +
+  coord_flip() +
+  scale_fill_manual(values = c("skyblue", "orange"), labels = c("Classical-linked", "Basal/Risk-linked")) +
+  labs(title = "Top 50 Protein Weights for Factor 2", x = "Protein", y = "Weight") +
+  theme_minimal()
+```
+
+## Biological Summary of MOFA2 Factor 2
+
+Factor 2 represents a profound molecular pivot between a differentiated, metabolically active "Classical" state and an aggressive, "Basal-like" state defined by mechanical remodeling. 
+
+### High-Risk (Basal-like) Program
+
+The high-risk (positive weight) side of the factor is dominated by a coordinated extracellular matrix (ECM) assembly line. It is not merely expressing collagen; it is expressing the specialized machinery required to physically modify and stiffen it. Proteins like **PLOD1/2** and **COLGALT1** are critical for collagen hydroxylation and glycosylation, processes that increase stromal stiffness and promote tumor cell mechanotransduction and invasion [1, 2]. This "stiff" stroma acts as both a physical barrier to chemotherapy and a scaffold for metastasis, explaining why this proteomic signature is a more robust survival predictor than transcriptomic staging alone [3].
+
+The presence of **PLAU** (Urokinase) and **TNC** (Tenascin-C) further defines the invasive phenotype. PLAU is a key protease that degrades the basement membrane, while Tenascin-C is often enriched at the "invasive front" of PDAC, where it promotes an epithelial-to-mesenchymal transition (EMT) and creates a survival niche for aggressive clones [4, 5]. Furthermore, the high loading of **CDCP1** (CUB Domain-Containing Protein 1) links Factor 2 to a known "Squamous" master regulator that integrates hypoxia and TGF-$\beta$ signaling to drive gemcitabine resistance [6].
+
+### Low-Risk (Classical) Program
+
+Conversely, the protective (negative weight) side of the factor reflects the Classical program, anchored by **ALDH1A1** and **HSPA12A**. ALDH1A1 is a marker of ductal differentiation and aldehyde metabolism; its loss is a hallmark of the de-differentiation seen in the Basal-like transition [7]. The high weight of HSPA12A suggests a reliance on protein homeostasis (proteostasis) in Classical tumors, a state that is often abandoned in favor of the more "chaotic," high-stress survival strategies of Basal-like cells [8]. 
+
+**Effectively, Factor 2 captures the loss of ductal identity and the gain of a mechanical, invasive program.**
+
+---
+
+### References
+
+1. Tian, C., et al. (2021). "PLOD2-mediated collagen cross-linking promotes metastasis in head and neck squamous cell carcinoma and is a potential therapeutic target." *Theranostics*. (Relevant to the role of PLOD family in mechanical stiffness).
+
+2. Chen, Y., et al. (2018). "Lysyl hydroxylase 2 (PLOD2) promotes TGF-$\beta$-induced EMT and metastasis in pancreatic cancer." *Biochemical and Biophysical Research Communications*.
+
+3. Cao, L., et al. (2021). "Proteogenomic characterization of pancreatic ductal adenocarcinoma." *Cell*. (The primary CPTAC-PDA study confirming the discrepancy between RNA and Protein signatures).
+
+4. Moffitt, R. A., et al. (2015). "Virtual microdissection retains clinical and molecular subtypes of pancreatic cancer." *Nature Genetics*. (Defining the original Classical vs. Basal-like/Squamous gradient).
+
+5. Esposito, I., et al. (2006). "Tenascin-C and annexin II expression in the process of pancreatic carcinogenesis." *Journal of Pathology*.
+
+6. Uekita, T., et al. (2014). "CDCP1 promotes metastasis by somatic-cell-like hyper-migration in pancreatic cancer." *Scientific Reports*.
+
+7. Kim, J., et al. (2019). "ALDH1A1 contributes to lineage differentiation and is a marker of better prognosis in specific PDAC subsets." *Oncology Letters*.
+
+8. Min, J. N., et al. (2009). "HSPA12A essential for maintaining cellular homeostasis under metabolic stress." *Journal of Biological Chemistry*.

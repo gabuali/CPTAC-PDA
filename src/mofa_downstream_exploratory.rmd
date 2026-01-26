@@ -3,50 +3,47 @@ title: "Downstream exploration of MOFA CPTAC-PDAC RNA, proteome, and mutation da
 output: github_document
 ---
 
-## Setup
+# Setup
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 # packages
-# In setup chunk, load all required packages
 library(MOFA2)
 library(tidyverse)
 library(GGally)
+library(psych)
 ```
 
 # Load MOFA model RNA and proteome data
 ```{r load-model}
 # Load the MOFA model
-model_path <- "Results/MOFA_models/mofa_cptac_pdac_rna_proteome_model.hdf5"
+model_path <- "../Results/MOFA_models/mofa_cptac_pdac_rna_proteome_model.hdf5"
 MOFAmodel <- load_model(model_path)
 summary(MOFAmodel)
 ```
 
-## Load clinical metadata
-```{r load-clinical-metadata}
-clinical_df <- read.csv("Data/Metadata/metadata_merged_clinical_mol-phenotype_from_paper.csv", 
-                        row.names = 1, 
-                        stringsAsFactors = FALSE,
-                        na.strings = c("", " ", "NA", "N/A", "na", "null", "NULL", "NaN"))
-print(dim(clinical_df))
-head(clinical_df)
+# Load MOFA model RNA, proteome, and mutation data 
+```{r load-model-v2}
+# Load the MOFA model
+model_path_v2 <- "../Results/MOFA_models/mofa_cptac_pdac_rna_proteome_mutations_model.hdf5"
+MOFAmodel_2 <- load_model(model_path_v2)
+summary(MOFAmodel_2)
 ```
 
-## Variance explained by factors and views
+# Variance explained by factors and views
 ```{r explore-factors}
 # Get variance explained
 var_explained <- get_variance_explained(MOFAmodel, as.data.frame = TRUE)
 print(var_explained)
 
+var_explained2 <- get_variance_explained(MOFAmodel_2, as.data.frame = TRUE)
+print(var_explained2)
+
 # Plot variance explained by each factor for each view
 plot_variance_explained(MOFAmodel)
 
-plot_variance_explained(MOFAmodel, x="view", y="factor", plot_total = TRUE)[[2]]
-
-# Plot factor values
-plot_factors(MOFAmodel, factors = 1:5, color_by = NULL)
 
 # Plot correlations between factors
-plot_factor_cor(MOFAmodel, factors = 1:5)
+plot_factor_cor(MOFAmodel, factors = 1:6)
 
 # print factor correlations as a matrix
 factors_mat <- get_factors(MOFAmodel)[[1]]
@@ -54,115 +51,295 @@ factor_cor_matrix <- cor(factors_mat)
 print(round(factor_cor_matrix, 2))
 ```
 
+# Load clinical metadata
+```{r load-clinical-metadata}
+clinical_df <- read.csv("../Data/Metadata/metadata_merged_clinical_mol-phenotype_from_paper.csv", 
+                        row.names = 1, 
+                        stringsAsFactors = FALSE,
+                        na.strings = c("", " ", "NA", "N/A", "na", "null", "NULL", "NaN"))
+cat("Before replacement:\n")
+print(head(rownames(clinical_df)))
 
-## Visualize factor values colored by clinical variables
+# replace '-' with '.' in case IDs to match sample IDs in MOFA data
+rownames(clinical_df) <- gsub("-", ".", rownames(clinical_df))
+
+cat("\nAfter replacement:\n")
+print(head(rownames(clinical_df)))
+print(dim(clinical_df))
+```
+
+# Append clinical metadata to MOFA sample_metadata
+```{r append-clinical-metadata}
+# Get sample names from MOFA model
+mofa_samples <- unlist(samples_names(MOFAmodel))
+cat("Number of MOFA samples:", length(mofa_samples), "\n")
+cat("First MOFA samples:\n")
+print(head(mofa_samples))
+cat("\nNumber of clinical samples:", nrow(clinical_df), "\n")
+cat("First clinical samples:\n")
+print(head(rownames(clinical_df)))
+cat("\nNumber of matching samples:", sum(mofa_samples %in% rownames(clinical_df)), "\n")
+
+# Match and create metadata
+idx <- match(mofa_samples, rownames(clinical_df))
+sample_meta <- data.frame(sample = mofa_samples, stringsAsFactors = FALSE)
+sample_meta <- cbind(sample_meta, clinical_df[idx, ])
+
+samples_metadata(MOFAmodel) <- sample_meta
+cat("\nAdded metadata to MOFAmodel\n")
+print(dim(samples_metadata(MOFAmodel)))
+print(head(samples_metadata(MOFAmodel)[, 1:5]))
+
+# Print specific sample
+cat("\n\nData for sample C3L.00401:\n")
+specific_sample <- samples_metadata(MOFAmodel)[samples_metadata(MOFAmodel)$sample == "C3L.00401", ]
+print(specific_sample)
+```
+
+# Correlations between factors and clinical variables
+```{r factor-clinical-correlations}
+# Correlate factors with clinical variables
+# covariates can be specified as a vector of column names in the sample metadata
+covariates <- c(
+  "PurIST_Subtype", 
+  "PurIST_Subtype_graded",
+  "Moffitt", 
+  "Bailey",
+  "Collisson",
+  "tumor_size_cm",
+  "ROIVolume",
+  "tumor_stage_pathological", 
+  "pathologic_staging_primary_tumor_pt", 
+  "Neoplastic_cellularity",
+  "vital_status",
+  "cause_of_death",
+  "mutation_count",
+  "KRAS_VAF",
+  "PFS_days",
+  "PFS_event",
+  "OS_days",
+  "OS_event"
+)
+
+cor_results <- correlate_factors_with_covariates(
+  MOFAmodel, 
+  covariates = covariates,
+  plot = 'r'
+)
+
+# Get the -log10(pval) matrix
+log_pval_matrix <- correlate_factors_with_covariates(
+  MOFAmodel, 
+  covariates = covariates,
+  plot = 'log_pval',
+  return_data = TRUE
+)
+
+# Get the correlation coefficient matrix
+cor_matrix <- correlate_factors_with_covariates(
+  MOFAmodel, 
+  covariates = covariates,
+  plot = 'r',
+  return_data = TRUE
+)
+
+cat("\n-log10(p-value) matrix:\n")
+print(log_pval_matrix)
+
+cat("\nCorrelation coefficient (r) matrix:\n")
+print(round(cor_matrix, 3))
+
+# Convert to p-values
+pval_matrix <- 10^(-log_pval_matrix)
+
+cat("\nP-value matrix (raw):\n")
+print(pval_matrix)
+
+# Apply FDR correction
+pval_vector <- as.vector(pval_matrix)
+padj_vector <- p.adjust(pval_vector, method = "fdr")
+padj_matrix <- matrix(padj_vector, nrow = nrow(pval_matrix), ncol = ncol(pval_matrix),
+                     dimnames = dimnames(pval_matrix))
+
+cat("\nFDR-adjusted p-value matrix:\n")
+print(padj_matrix)
+
+# Find significant correlations (FDR < 0.05)
+sig_idx_fdr <- which(padj_matrix < 0.05, arr.ind = TRUE)
+if(nrow(sig_idx_fdr) > 0) {
+  cat("\nSignificant correlations (FDR < 0.05):\n")
+  sig_df <- data.frame(
+    Factor = rownames(padj_matrix)[sig_idx_fdr[,1]],
+    Covariate = colnames(padj_matrix)[sig_idx_fdr[,2]],
+    r = cor_matrix[sig_idx_fdr],
+    pval = pval_matrix[sig_idx_fdr],
+    padj_fdr = padj_matrix[sig_idx_fdr]
+  )
+  print(sig_df[order(sig_df$padj_fdr), ])
+} else {
+  cat("\nNo significant correlations at FDR < 0.05\n")
+  cat("Top 10 by raw p-value:\n")
+  # Find significant correlations by raw p-value
+  sig_idx <- which(pval_matrix < 0.05, arr.ind = TRUE)
+  if(nrow(sig_idx) > 0) {
+    sig_df <- data.frame(
+      Factor = rownames(pval_matrix)[sig_idx[,1]],
+      Covariate = colnames(pval_matrix)[sig_idx[,2]],
+      r = cor_matrix[sig_idx],
+      pval = pval_matrix[sig_idx],
+      padj_fdr = padj_matrix[sig_idx]
+    )
+    print(head(sig_df[order(sig_df$pval), ], 10))
+  }
+}
+```
+
+# Scatterplots
+```{r scatterplots}
+# plot samples in factor space colored by clinical variables
+# plot factos 2:4, 2:6, and 4:6
+# color by categorical clinical variables - PurIST_Subtype, Moffitt, Bailey
+# color by continuous clinical variables - mutation_count, KRAS_VAF, Neoplastic_cellularity, PFS_days
+# there should be a total of 21 plots
+
+# Ensure continuous variables are numeric
+sample_meta <- samples_metadata(MOFAmodel)
+sample_meta$Neoplastic_cellularity <- as.numeric(sample_meta$Neoplastic_cellularity)
+sample_meta$mutation_count <- as.numeric(sample_meta$mutation_count)
+sample_meta$KRAS_VAF <- as.numeric(sample_meta$KRAS_VAF)
+sample_meta$PFS_days <- as.numeric(sample_meta$PFS_days)
+samples_metadata(MOFAmodel) <- sample_meta
+
+categorical_vars <- c("PurIST_Subtype", "Moffitt", "Bailey")
+continuous_vars <- c("mutation_count", "KRAS_VAF", "Neoplastic_cellularity", "PFS_days")
+factor_pairs <- list(c(2,4), c(2,6), c(4,6))
+for(pair in factor_pairs) {
+  for(var in categorical_vars) {
+    p <- plot_factors(MOFAmodel, factors = pair, color_by = var, dot_size = 4) +
+      ggtitle(paste("Factors", pair[1], "vs", pair[2], "colored by", var))
+    print(p)
+  }
+  for(var in continuous_vars) {
+    p <- plot_factors(MOFAmodel, factors = pair, color_by = var, dot_size = 4) +
+      ggtitle(paste("Factors", pair[1], "vs", pair[2], "colored by", var))
+    print(p)
+  }
+}
+```
+
+
+
+
+
+
+
+# Visualize factor values colored by clinical variables
 ```{r visualize-factors-clinical}
-plot_factors(factors = 1:7, MOFAmodel, color_by = clinical_df$PurIST_Subtype) # check Factors 2,3,6
-plot_factors(factors = 1:7, MOFAmodel, color_by = clinical_df$Moffitt) # check Factors 6
-
-plot_factor(MOFAmodel, factors = c(1:7), color_by = clinical_df$PurIST_Subtype,
+plot_factor(MOFAmodel, factors = c(2,6), color_by = "PurIST_Subtype",
             dot_size = 3, dodge = TRUE,
-            legend = FALSE,
             add_violin = TRUE, violin_alpha = 0.25
 )
 
-plot_weights(MOFAmodel,
-  view = "Protein",
-  factor = 1,
-  nfeatures = 10,     # Number of features to highlight
-  scale = TRUE,          # Scale weights from -1 to 1
-  abs = FALSE             # Take the absolute value?
+plot_factor(MOFAmodel, factors = c(2,6), color_by = "Moffitt",
+            dot_size = 3, dodge = TRUE,
+            add_violin = TRUE, violin_alpha = 0.25
 )
+
 
 plot_top_weights(MOFAmodel,
   view = "Protein",
-  factor = 1,
+  factor = 2,
+  nfeatures = 10
+)
+
+plot_top_weights(MOFAmodel,
+  view = "RNA",
+  factor = 2,
   nfeatures = 10
 )
 ```
 
 
-# Load MOFA model RNA, proteome, and mutation data 
-```{r load-model-v2}
-# Load the MOFA model
-model_path_v2 <- "Results/MOFA_models/mofa_cptac_pdac_rna_proteome_mutations_model.hdf5"
-MOFAmodel_v2 <- load_model(model_path_v2)
-summary(MOFAmodel_v2)
+# Heatmap of factor values
+```{r heatmap-factors}
+plot_data_heatmap(MOFAmodel,
+  view = "Protein",           # view of interest
+  factor = 2,                 # factor of interest
+  features = 100,             # number of features to plot (they are selected by weight)
+  cluster_rows = FALSE, cluster_cols = TRUE,
+  show_rownames = TRUE, show_colnames = FALSE,
+  annotation_samples = c("PurIST_Subtype", "Moffitt", "Bailey", "vital_status")
+)
+
+plot_data_heatmap(MOFAmodel,
+  view = "RNA",           
+  factor = 2,             
+  features = 100,          
+  cluster_rows = FALSE, cluster_cols = TRUE,
+  show_rownames = TRUE, show_colnames = FALSE,
+  annotation_samples = c("PurIST_Subtype", "Moffitt", "Bailey", "vital_status")
+)
+
+plot_data_heatmap(MOFAmodel,
+  view = "Protein",           
+  factor = 4,             
+  features = 100,          
+  cluster_rows = FALSE, cluster_cols = TRUE,
+  show_rownames = TRUE, show_colnames = FALSE,
+  annotation_samples = c("PurIST_Subtype", "Moffitt", "Bailey", "vital_status")
+)
+
+plot_data_heatmap(MOFAmodel,
+  view = "RNA",           
+  factor = 4,             
+  features = 100,          
+  cluster_rows = FALSE, cluster_cols = TRUE,
+  show_rownames = TRUE, show_colnames = FALSE,
+  annotation_samples = c("PurIST_Subtype", "Moffitt", "Bailey", "vital_status")
+)
+
+plot_data_heatmap(MOFAmodel,
+  view = "Protein",           
+  factor = 6,             
+  features = 100,         
+  cluster_rows = FALSE, cluster_cols = TRUE,
+  show_rownames = TRUE, show_colnames = FALSE,
+  annotation_samples = c("PurIST_Subtype", "Moffitt", "Bailey", "vital_status")
+)
+
+plot_data_heatmap(MOFAmodel,
+  view = "RNA",           
+  factor = 6,             
+  features = 100,         
+  cluster_rows = FALSE, cluster_cols = TRUE,
+  show_rownames = TRUE, show_colnames = FALSE,
+  annotation_samples = c("PurIST_Subtype", "Moffitt", "Bailey", "vital_status")
+)
+
+plot_data_heatmap(MOFAmodel,
+  view = "RNA",           # view of interest
+  factor = 2,             # factor of interest
+  features = 100,          # number of features to plot (they are selected by weight)
+  cluster_rows = FALSE, cluster_cols = TRUE,
+  show_rownames = TRUE, show_colnames = FALSE,
+  annotation_samples = "tumor_stage_pathological"  # Can now use column name directly
+)
+
 ```
 
-## Variance explained by factors and views
-```{r explore-factors-v2}
-# Get variance explained
-var_explained <- get_variance_explained(MOFAmodel_v2, as.data.frame = TRUE)
-print(var_explained)
-# Plot variance explained by each factor for each view
-plot_variance_explained(MOFAmodel_v2)
 
-plot_variance_explained(MOFAmodel_v2, x="view", y="factor", plot_total = TRUE)[[2]] 
-# Plot factor values
-plot_factors(MOFAmodel_v2, factors = 1:5, color_by = NULL)
-# Plot correlations between factors
-plot_factor_cor(MOFAmodel_v2, factors = 1:5)
-# print factor correlations as a matrix
-factors_mat <- get_factors(MOFAmodel_v2)[[1]]
-factor_cor_matrix <- cor(factors_mat)
-print(round(factor_cor_matrix, 2))
+
+# UMAP, tSNE of factors
+```{r umap-factors}
+MOFAmodel <- run_umap(MOFAmodel, factors = c(2,4,6))
+plot_dimred(MOFAmodel, method = "UMAP",color_by = "PurIST_Subtype", dot_size = 5)
+plot_dimred(MOFAmodel, method = "UMAP",color_by = "PurIST_Subtype_graded", dot_size = 5)
+plot_dimred(MOFAmodel, method = "UMAP",color_by = "Moffitt", dot_size = 5)
+
+MOFAmodel <- run_tsne(MOFAmodel, factors = c(2,4,6))
+plot_dimred(MOFAmodel, method = "TSNE",color_by = "PurIST_Subtype", dot_size = 5)
+plot_dimred(MOFAmodel, method = "TSNE",color_by = "PurIST_Subtype_graded", dot_size = 5)
+plot_dimred(MOFAmodel, method = "TSNE",color_by = "Moffitt", dot_size = 5)
 ```
 
 
-## Check training stats - Model v1 (RNA + Proteome)
-```{r training-stats-v1}
-cat("=== MOFAmodel (RNA + Proteome) ===\n")
-cat("Training stats available:", names(MOFAmodel@training_stats), "\n")
-cat("Converged:", MOFAmodel@training_stats$converged, "\n")
-cat("ELBO length:", length(MOFAmodel@training_stats$elbo), "\n")
-cat("First 10 ELBO values:\n")
-print(head(MOFAmodel@training_stats$elbo, 10))
-cat("Number of NaN values:", sum(is.nan(MOFAmodel@training_stats$elbo)), "\n\n")
-
-# Plot ELBO - remove NaN values
-elbo_vals <- MOFAmodel@training_stats$elbo
-valid_elbo <- !is.nan(elbo_vals) & !is.na(elbo_vals)
-if(sum(valid_elbo) > 1) {
-  elbo_df <- data.frame(iteration = which(valid_elbo),
-                        elbo = elbo_vals[valid_elbo])
-  print(ggplot(elbo_df, aes(x = iteration, y = elbo)) +
-    geom_line(color = "blue", size = 1) +
-    geom_point(color = "blue", size = 2) +
-    labs(title = "MOFAmodel Convergence (RNA + Proteome)",
-         subtitle = paste("Valid iterations:", nrow(elbo_df), "/ NaN iterations:", sum(!valid_elbo)),
-         x = "Iteration", y = "ELBO") +
-    theme_bw())
-} else {
-  cat("WARNING: Model has NaN values - training failed due to numerical instability!\n")
-}
-```
-
-## Check training stats - Model v2 (RNA + Proteome + Mutations)
-```{r training-stats-v2}
-cat("=== MOFAmodel_v2 (RNA + Proteome + Mutations) ===\n")
-cat("Training stats available:", names(MOFAmodel_v2@training_stats), "\n")
-cat("Converged:", MOFAmodel_v2@training_stats$converged, "\n")
-cat("ELBO length:", length(MOFAmodel_v2@training_stats$elbo), "\n")
-cat("First 10 ELBO values:\n")
-print(head(MOFAmodel_v2@training_stats$elbo, 10))
-cat("Last 10 ELBO values:\n")
-print(tail(MOFAmodel_v2@training_stats$elbo, 10))
-cat("Number of NaN values:", sum(is.nan(MOFAmodel_v2@training_stats$elbo)), "\n\n")
-
-# Plot ELBO - remove NaN values
-elbo_vals_v2 <- MOFAmodel_v2@training_stats$elbo
-valid_elbo_v2 <- !is.nan(elbo_vals_v2) & !is.na(elbo_vals_v2)
-if(sum(valid_elbo_v2) > 1) {
-  elbo_df_v2 <- data.frame(iteration = which(valid_elbo_v2),
-                           elbo = elbo_vals_v2[valid_elbo_v2])
-  print(ggplot(elbo_df_v2, aes(x = iteration, y = elbo)) +
-    geom_line(color = "darkgreen", size = 1) +
-    labs(title = "MOFAmodel_v2 Convergence (RNA + Proteome + Mutations)",
-         subtitle = paste("Total iterations:", nrow(elbo_df_v2)),
-         x = "Iteration", y = "ELBO") +
-    theme_bw())
-} else {
-  cat("WARNING: Model v2 has NaN values - training failed due to numerical instability!\n")
-}
-```

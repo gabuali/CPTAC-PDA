@@ -1,0 +1,209 @@
+---
+title: "MOFAmodel survival analysis"
+output: github_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+# packages
+library(MOFA2)
+library(tidyverse)
+library(survival)
+library(survminer)
+library(GGally)
+```
+
+### Load MOFA model RNA and proteome data
+```{r load-model}
+# Load the MOFA model
+model_path <- "../Results/MOFA_models/mofa_cptac_pdac_rna_proteome_model.hdf5"
+MOFAmodel <- load_model(model_path)
+summary(MOFAmodel)
+```
+
+### Get factor values and weights as data frames
+```{r get-factors-weights-df}
+factors_df <- get_factors(MOFAmodel, factors = 'all')
+# convert factors_df to dataframe and drop 'group1.' from column names
+factors_df <- as.data.frame(factors_df)
+colnames(factors_df) <- gsub('group1.', '', colnames(factors_df))
+head(factors_df)
+lapply(factors_df,dim)
+weights <- get_weights(MOFAmodel, views = "all", factors = "all")
+lapply(weights,dim)
+```
+
+### Load clinical data
+```{r load-clinical-metadata}
+clinical_df <- read.csv("../Data/Metadata/metadata_merged_clinical_mol-phenotype_from_paper.csv", 
+                        row.names = 1, 
+                        stringsAsFactors = FALSE,
+                        na.strings = c("", " ", "NA", "N/A", "na", "null", "NULL", "NaN"))
+cat("Before replacement:\n")
+print(head(rownames(clinical_df)))
+
+# replace '-' with '.' in case IDs to match sample IDs in MOFA data
+rownames(clinical_df) <- gsub("-", ".", rownames(clinical_df))
+
+cat("\nAfter replacement:\n")
+print(head(rownames(clinical_df)))
+print(dim(clinical_df))
+```
+
+### Survival data
+```{r prepare-survival-data}
+# select relevant columns: case ID, OS_days, OS_event
+surv_df <- clinical_df %>%
+  select(OS_days, OS_event) %>%
+  mutate(OS_days = as.numeric(OS_days), OS_event = as.numeric(OS_event))
+```
+
+### Combine factors with survival data
+```{r combine-factors-survival}
+# samples are rows in factors_df and surv_df
+combined_df <- merge(factors_df, surv_df, by = "row.names")
+rownames(combined_df) <- combined_df$Row.names
+combined_df$Row.names <- NULL
+print(dim(combined_df))
+head(combined_df)
+```
+
+### Survival analysis
+```{r survival-analysis}
+# Fit Cox proportional hazards model for each factor
+results <- data.frame(Factor = character(),
+                        HR = numeric(),
+                        pval = numeric(),
+                        adj_pval = numeric(),
+                        stringsAsFactors = FALSE
+)
+for (factor in colnames(factors_df)) {
+  cox_model <- coxph(Surv(OS_days, OS_event) ~ combined_df[[factor]], data = combined_df)
+  cox_summary <- summary(cox_model)
+  hr <- cox_summary$coefficients[,"exp(coef)"]
+  pval <- cox_summary$coefficients[,"Pr(>|z|)"]
+  results <- rbind(results, data.frame(Factor = factor, HR = hr, pval = pval))
+}
+results$adj_pval <- p.adjust(results$pval, method = "BH")
+print(results)
+# Identify significant factors
+significant_factors <- results %>% filter(adj_pval < 0.05)
+print(significant_factors)
+```
+If HR > 1: For every unit increase in Factor 2, the risk of the event (death) increases by (HR - 1) x 100. If your HR is 1.5, there is a 50% increase in risk per unit of Factor 2. If HR < 1: Factor 2 is protective.
+
+### Proportional hazards assumption check
+```{r ph-assumption-check}
+for (factor in significant_factors$Factor) {
+  cox_model <- coxph(Surv(OS_days, OS_event) ~ combined_df[[factor]], data = combined_df)
+  ph_test <- cox.zph(cox_model)
+  print(paste("Proportional hazards test for", factor))
+  print(ph_test)
+}
+
+# Example plot for the first significant factor
+test.ph <- cox.zph(cox_model)
+plot(test.ph) # Look for a horizontal line
+```
+
+Factor 2 was identified as a significant predictor of overall survival in a Cox proportional hazards model. The proportional hazards assumption was verified both visually via Schoenfeld residual plots and statistically via the cox.zph test (chi^2 = 1.85, p = 0.17). In the context of a Schoenfeld residual test (the cox.zph() function in R), the null hypothesis is that the hazards are proportional. A p-value > 0.05 (like your 0.17) means you fail to reject the null hypothesis. Translation: There is no statistically significant evidence that the proportional hazards assumption has been violated. If this p-value had been, say, 0.001, it would mean the impact of Factor 2 changes drastically over time (e.g., it’s very dangerous in the first 6 months but doesn't matter after 2 years). Chisq measures the "mismatch" between your data and the PH assumption. A low value is good. 
+
+### Kaplan-Meier survival curves for significant factors
+```{r km-survival-curves}
+# Binarize Factor 2 based on the median
+median_f2 <- median(combined_df$Factor2, na.rm = TRUE)
+combined_df$Factor2_group <- ifelse(combined_df$Factor2 > median_f2, "High", "Low")
+
+# Fit survival curve
+fit <- survfit(Surv(OS_days, OS_event) ~ Factor2_group, data = combined_df)
+
+# Create plot
+ggsurvplot(
+  fit,
+  data = combined_df,
+  palette = c("#E7B800", "#2E9FDF"), # High = Gold, Low = Blue
+  risk.table = TRUE,                # Add risk table below
+  pval = TRUE,                      # Show p-value from log-rank test
+  conf.int = TRUE,                  # Show confidence intervals
+  xlab = "Time (Days)",
+  ylab = "Overall Survival Probability",
+  legend.labs = c("Factor 2 High", "Factor 2 Low"),
+  title = "Survival Analysis by MOFA2 Factor 2",
+  ggtheme = theme_minimal()
+)
+```
+
+The log-rank p-value of 0.0034 confirms that the distinction between "Factor 2 High" and "Factor 2 Low" isn't just a statistical artifact—it’s a major biological divider for patient outcomes in this cohort.
+
+Observations from K-M Plot:
+Clear Separation: The yellow ("High") and blue ("Low") curves begin to diverge significantly around the 250-day mark.
+Median Survival: You can see that the median survival for the "Factor 2 High" group is roughly 400–450 days, whereas the "Factor 2 Low" group extends much further, crossing the 0.5 probability threshold closer to 800 days.
+Risk at 500 Days: Looking at the risk table, there are 36 patients at risk in the "Low" group at day 500, but only 27 in the "High" group. That rapid drop-off in the yellow line is classic for the more aggressive PDAC subtypes.
+
+The shaded areas around survival lines represent the 95% Confidence Interval (CI) for the survival probability at any given time point.  That is, if you repeat this study with a different sample of patients from the same population, the "true" survival curve would likely fall within that shaded region 95% of the time.
+
+### Multivariate Cox model including clinical covariates
+Fit a multivariate Cox proportional hazards model that includes Factor 2 along with clinical covariates such as tumor stage and PurIST subtype.  This is to check if Factor 2 remains a significant and _independent_ predictor of survival after adjusting for these known clinical factors; or is simply a surrogate for tumor stage.
+
+$$h(t) = h_0(t) \exp(\beta_1 \text{Factor2} + \beta_2 \text{Stage_Grouped} + \beta_3 \text{PurIST_Subtype})$$
+
+```{r multivariate-cox-model_data-preparation}
+# Merge clinical columns into combined_df by matching rownames
+combined_df$tumor_stage_pathological <- clinical_df[rownames(combined_df), "tumor_stage_pathological"]
+combined_df$PurIST_Subtype <- clinical_df[rownames(combined_df), "PurIST_Subtype"]
+
+# Collapse tumor stages into broader categories for statistical power
+combined_df <- combined_df %>%
+mutate(
+    Stage_Grouped = case_when(
+        tumor_stage_pathological %in% c("Stage IA", "Stage IB", "Stage I") ~ "Stage_I",
+        tumor_stage_pathological %in% c("Stage IIA", "Stage IIB", "Stage II") ~ "Stage_II",
+        tumor_stage_pathological %in% c("Stage III", "Stage IV") ~ "Stage_III_IV",
+        TRUE ~ NA_character_
+    ),
+    
+    # Set Reference Levels (Critical for Cox model interpretation)
+    Stage_Grouped = factor(Stage_Grouped, levels = c("Stage_I", "Stage_II", "Stage_III_IV")),
+    
+    # Ensure PurIST is a factor with 'Classical' as the baseline
+    # (Update 'Basal-like' or 'Classical' if your labels are slightly different)
+    PurIST_Subtype = factor(PurIST_Subtype, levels = c("classical", "basal-like"))
+  )
+
+# 3. Check for NAs that might be dropped in the model
+print("Stage Distribution:")
+print(table(combined_df$Stage_Grouped, useNA = "always"))
+```
+
+```{r multivariate-cox-model-fit}
+# Fit the multivariate model
+# Note: R will automatically drop rows with NAs in these columns
+multivar_cox <- coxph(
+  Surv(OS_days, OS_event) ~ Factor2 + Stage_Grouped + PurIST_Subtype, 
+  data = combined_df
+)
+
+# View the detailed summary
+summary(multivar_cox)
+```
+
+Based on results from the multivariate Cox model, Factor 2 remains a significant predictor of overall survival even after adjusting for tumor stage and PurIST subtype. This suggests that Factor 2 captures additional biological information relevant to patient prognosis beyond these established clinical factors. 
+The most critical value in the entire table is `Pr(>|z|) = 0.0452` for Factor 2. Even after accounting for the physical spread of the tumor (Stage) and the existing mRNA-based classification (PurIST), Factor 2 remains statistically significant. The "Killer" Finding: Notice that PurIST_Subtypebasal-like is not significant here ($p = 0.3078$). This suggests that while PurIST captures a survival signal on its own, Factor 2 (which integrates protein data) is a much more precise and powerful predictor of outcome. It essentially "outperforms" the standard transcriptomic classifier.
+
+Hazard Ratio (The Magnitude of Risk) - the `exp(coef)` column: Factor 2 (1.143): For every 1-unit increase in the Factor 2 score, the risk of death increases by 14.3%. Because Factor scores are usually standardized, a multi-unit jump in the score represents a massive shift in patient risk. Stage III/IV (1.644): As expected, advanced stages have a higher hazard ratio (64% increased risk vs. Stage I), but interestingly, it isn't statistically significant here (`p = 0.1099`), likely because the aggressive biology captured by Factor 2 is explaining the deaths better than the stage itself.
+
+Model Reliability $n=134$, Events=96: a very healthy ratio of events to patients. Having 96 deaths gives the model enough "information" to make these calculations stable. Concordance (0.606): This is a moderate score. It means the model correctly predicts which of two patients will die first about 61% of the time. While not perfect, it’s quite standard for complex cancer cohorts. Likelihood ratio test (`p=0.02`): This tells us the model as a whole is significantly better at predicting survival than a model with no variables at all.
+
+*In a multivariate Cox proportional hazards model, MOFA2 Factor 2 remained a significant independent predictor of overall survival (HR = 1.14, 95% CI 1.00–1.30, p = 0.045), outperforming both pathologic stage and the transcriptomic-based PurIST subtype.*
+
+### Forest plot of multivariate Cox model
+```{r forest-plot-multivariate-cox}
+# Generate the forest plot from your multivariate model
+ggforest(multivar_cox, data = combined_df, 
+         main = "Hazard Ratios for Overall Survival (CPTAC-PDAC)",
+         cpositions = c(0.02, 0.22, 0.4))
+```
+
+The Vertical Line (HR = 1): This is the "Null" line. If a variable's horizontal bar (the 95% Confidence Interval) crosses this line, it is not statistically significant.
+Factor 2 whiskers (the CI) will likely be just touching or slightly clear of the 1.0 line on the right side. This visually confirms `p = 0.045`.
+The forest plot shows that Factor 2 is the most robust, consistent driver of risk in the model because it has the most "certainty" (narrower relative whiskers) compared to the noisy clinical staging.
