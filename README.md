@@ -2,7 +2,7 @@
 
 Multi-omics integration analysis of CPTAC Pancreatic Ductal Adenocarcinoma (PDAC) data combining RNAseq, proteomics, and mutation data.
 
-**Reference Study:** [Clark et al., Cell 2021](https://doi.org/10.1016/j.cell.2021.08.023)
+**Reference Study:** [Cao et al., Cell 2021](https://doi.org/10.1016/j.cell.2021.08.023)
 
 The purpose of this analysis is to find a molecular signature that is an independent predictor of overall survival; using an approach that has not been used in the referenced study from which the data were sourced.
 
