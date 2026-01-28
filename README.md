@@ -19,7 +19,12 @@ The purpose of this analysis is to find a molecular signature that is an indepen
 │   ├── RNA_count_tables/     # Raw and normalized RNA counts
 │   └── RNAseq_raw/           # GDC raw downloads
 ├── Results/
-│   └── MOFA_models/          # Trained MOFA HDF5 models
+│   ├── MOFA_models/          # Trained MOFA HDF5 models
+│   ├── PurIST_Classification_Results.csv  # Basal/Classical subtype calls
+│   ├── factor2_under_the_hood.html
+│   ├── gsea_mofa_factor2.html
+│   ├── mofa_downstream_exploratory.html
+│   └── survival_analysis.html
 └── src/                      # Analysis scripts
 ```
 
