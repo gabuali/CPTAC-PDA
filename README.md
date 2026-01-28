@@ -4,6 +4,8 @@ Multi-omics integration analysis of CPTAC Pancreatic Ductal Adenocarcinoma (PDAC
 
 **Reference Study:** [Clark et al., Cell 2021](https://doi.org/10.1016/j.cell.2021.08.023)
 
+The purpose of this analysis is to find a molecular signature that is an independent predictor of overall survival; using an approach that has not been used in the referenced study from which the data were sourced.
+
 ---
 
 ## 📁 Project Structure
@@ -36,6 +38,7 @@ Multi-omics integration analysis of CPTAC Pancreatic Ductal Adenocarcinoma (PDAC
 | 7 | `mofa_downstream_exploratory.rmd` | Explore MOFA factors and clinical correlations |
 | 8 | `survival_analysis.rmd` | Survival analysis using MOFA factors |
 | 9 | `factor2_under_the_hood.rmd` | Deep dive into Factor 2 genes/proteins |
+| 10 | `gsea_mofa_factor2.rmd` | Gene Set Enrichment Analysis using MOFA Factor 2 |
 
 > **Note:** Mutation data explained <0.5% of variance, so MOFAmodel_1 (RNA + protein only) was used for downstream analysis.
 
@@ -102,13 +105,59 @@ More accurate than `tumor_size_cm` for linking with RNAseq data.
 
 ## 🛠️ Requirements
 
-See `requirements.txt` for Python dependencies.
+### Python
+Python 3.10+ recommended. Install dependencies:
+```bash
+pip install -r requirements.txt
+```
 
-**R packages:**
-- MOFA2
-- tidyverse
-- survival / survminer
-- PurIST
+**Key Python packages:**
+| Package | Version | Purpose |
+|---------|---------|---------|
+| pandas | 2.3.3 | Data manipulation |
+| numpy | 2.4.1 | Numerical operations |
+| matplotlib | 3.10.8 | Plotting |
+| seaborn | 0.13.2 | Statistical visualization |
+| scikit-learn | 1.8.0 | Machine learning utilities |
+| mofapy2 | 0.7.3 | MOFA Python backend |
+| mofax | 0.3.7 | MOFA utilities |
+| h5py | 3.15.1 | HDF5 file handling |
+| jupyter | 1.1.1 | Notebook environment |
+
+### R
+R 4.3+ recommended.
+
+**CRAN packages:**
+```r
+install.packages(c("tidyverse", "here", "survival", "survminer", 
+                   "GGally", "psych", "ggplot2", "devtools"))
+```
+
+**Bioconductor packages:**
+```r
+if (!require("BiocManager", quietly = TRUE))
+    install.packages("BiocManager")
+
+BiocManager::install(c("MOFA2", "fgsea"))
+```
+
+**GitHub packages:**
+```r
+# PurIST classifier for PDAC subtyping
+devtools::install_github("wwsean08/runPURIST")
+```
+
+| Package | Source | Purpose |
+|---------|--------|---------|
+| MOFA2 | Bioconductor | Multi-omics factor analysis |
+| tidyverse | CRAN | Data wrangling & visualization |
+| survival | CRAN | Survival analysis |
+| survminer | CRAN | Survival visualization |
+| fgsea | Bioconductor | Gene set enrichment analysis |
+| GGally | CRAN | Pairs plots & correlations |
+| psych | CRAN | Correlation utilities |
+| here | CRAN | Project-relative paths |
+| runPURIST | GitHub | Basal/classical PDAC classification |
 
 ---
 
