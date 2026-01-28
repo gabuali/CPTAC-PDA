@@ -47,6 +47,15 @@ The purpose of this analysis is to find a molecular signature that is an indepen
 
 > **Note:** Mutation data explained <0.5% of variance, so MOFAmodel_1 (RNA + protein only) was used for downstream analysis.
 
+### 📄 View Analysis Reports
+
+| Report | Description |
+|--------|-------------|
+| [MOFA Downstream Exploratory](https://gabuali.github.io/CPTAC-PDA/Results/mofa_downstream_exploratory.html) | Factor exploration and clinical correlations |
+| [Survival Analysis](https://gabuali.github.io/CPTAC-PDA/Results/survival_analysis.html) | Cox regression and Kaplan-Meier curves |
+| [Factor 2 Deep Dive](https://gabuali.github.io/CPTAC-PDA/Results/factor2_under_the_hood.html) | Top genes/proteins driving Factor 2 |
+| [GSEA Factor 2](https://gabuali.github.io/CPTAC-PDA/Results/gsea_mofa_factor2.html) | Hallmark pathway enrichment analysis |
+
 ---
 
 ## 📊 Data Sources
