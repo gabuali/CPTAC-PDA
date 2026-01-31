@@ -56,6 +56,7 @@ The purpose of this analysis is to find a molecular signature that is an indepen
 | [Survival Analysis](https://gabuali.github.io/CPTAC-PDA/Results/survival_analysis.html) | Cox regression and Kaplan-Meier curves |
 | [Factor 2 Deep Dive](https://gabuali.github.io/CPTAC-PDA/Results/factor2_under_the_hood.html) | Top genes/proteins driving Factor 2 |
 | [GSEA Factor 2](https://gabuali.github.io/CPTAC-PDA/Results/gsea_mofa_factor2.html) | Hallmark pathway enrichment analysis |
+| [Survival Signature Discovery](https://gabuali.github.io/CPTAC-PDA/Results/find_discriminatory_signature.html) | 18-Protein Lasso Signature Analysis |
 
 ---
 
