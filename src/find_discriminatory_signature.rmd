@@ -1,0 +1,422 @@
+---
+title: "Survival signature from MOFA model - Factor 2 analysis"
+output: github_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(glmnet)
+library(survival)
+library(impute)
+library(survminer)
+library(MOFA2)
+library(timeROC)
+library(survivalROC)
+```
+
+### Introduction
+
+The goal is to find the highly discriminatory subset of genes/proteins that provides the maximum separation in survival.
+
+1. **Extract the Leading Edge:** Pull the gene names for the top 15 GSEA pathways we just identified.  This was done in script `gsea_mofa_factor2.rmd`.
+2. **Univariate Screening:** Run a quick Cox model on each of those genes individually. Keep only those with $p < 0.05$.
+3. **Multivariate Lasso:** Feed those "proven" survival genes into a Lasso-Cox model to find the optimal combination.
+4. **C-Index Comparison:** Compare the Concordance Index (C-index) of your new signature against the C-index of Factor 2 alone. If the C-index increases (e.g., from 0.65 to 0.78), you have found a superior discriminator.
+
+
+### Extract Leading Edge Genes
+
+Leading edge genes from GSEA analysis of MOFA Factor 2 (protein view).
+```{r leadingEdgeGenes}
+# leading edge genes from top 15 GSEA pathways - see gsea_mofa_factor2.rmd
+leading_edge_genes_file <- "/Users/galebabu-ali/Documents/CPTAC-PDA/Results/MOFA_Factor2_Protein_LeadingEdgeGenes_top15PWYs.txt"
+leading_edge_genes <- scan(leading_edge_genes_file, what = character())
+length(leading_edge_genes)
+head(leading_edge_genes)
+```
+
+### Survival data and protein expression for leading edge genes
+Survival data.
+```{r survival_data}
+# Load clinical metadata with survival information
+clinical_df <- read.csv("/Users/galebabu-ali/Documents/CPTAC-PDA/Data/Metadata/metadata_merged_clinical_mol-phenotype_from_paper.csv", 
+                        row.names = 1, 
+                        stringsAsFactors = FALSE,
+                        na.strings = c("", " ", "NA", "N/A", "na", "null", "NULL", "NaN"))
+cat("Before replacement:\n")
+print(head(rownames(clinical_df)))
+
+# replace '-' with '.' in case IDs to match sample IDs in MOFA data
+rownames(clinical_df) <- gsub("-", ".", rownames(clinical_df))
+
+cat("\nAfter replacement:\n")
+print(head(rownames(clinical_df)))
+print(dim(clinical_df))
+
+# select relevant columns: case ID, OS_days, OS_event
+surv_df <- clinical_df %>%
+  select(OS_days, OS_event) %>%
+  mutate(OS_days = as.numeric(OS_days), OS_event = as.numeric(OS_event))
+
+head(surv_df)
+```
+
+Protein expression data for leading edge genes.
+```{r protein_expression}
+# Load protein expression data
+prot_df <- read.csv("/Users/galebabu-ali/Documents/CPTAC-PDA/Data/MOFA_input/proteome_top5k_hvgs_scaled_tumor.csv", row.names = 1)
+print(dim(prot_df))
+
+# subset to leading edge genes
+prot_leading_edge_df <- prot_df[rownames(prot_df) %in% leading_edge_genes, ]
+print(dim(prot_leading_edge_df))
+
+# check for NAs
+na_counts <- rowSums(is.na(prot_leading_edge_df))
+# sort and print proteins with any NAs
+na_counts <- na_counts[order(na_counts, decreasing = TRUE)]
+print(na_counts[na_counts > 0])
+
+# remove proteins with many NAs and no relevant biology (eg housekeeping genes)
+proteins_to_remove <- c("ACTN2", "PYGM", "PCSK9", "SH2B1", "TNIP2", "RCL1")
+prot_leading_edge_df <- prot_leading_edge_df[!rownames(prot_leading_edge_df) %in% proteins_to_remove, ]
+print(dim(prot_leading_edge_df))
+
+# impute remaining NAs, required for glmnet
+prot_leading_edge_imputed_df <- as.data.frame(impute.knn(as.matrix(prot_leading_edge_df))$data) 
+rownames(prot_leading_edge_imputed_df) <- rownames(prot_leading_edge_df)
+dim(prot_leading_edge_imputed_df)
+```
+
+
+### Prepare Data for Lasso-Cox
+```{r prepare_data}
+# Prepare your Data
+# X is a matrix of protein expression for your candidate genes (134 patients x N proteins)
+# y is a Surv object: Surv(time, status)
+X <- t(prot_leading_edge_imputed_df) 
+print(dim(X))
+
+# Surv object: Surv(time, status)
+common_ids <- intersect(rownames(X), rownames(surv_df))
+X_final <- X[common_ids, ]
+surv_final <- surv_df[common_ids, ]
+print(dim(X_final))
+print(dim(surv_final))
+
+y <- Surv(time = as.numeric(surv_final$OS_days), 
+          event = as.numeric(surv_final$OS_event))
+
+# FINAL VERIFICATION
+# This MUST be TRUE
+all(rownames(X_final) == rownames(surv_final))
+
+# Compare the first 5 values side-by-side
+data.frame(
+  Input_Days = head(surv_final$OS_days),
+  Surv_Object = head(as.matrix(y)[,1])
+)
+```
+
+### Univariate Screening 
+Run a Cox model for each of 355 proteins individually. 
+Keep only those with a $p < 0.05$.
+```{r univariate_screening}
+# Initialize a vector to store p-values
+univariate_p <- c()
+
+# Loop through each of your 355 proteins
+for(i in seq_len(ncol(X_final))) {
+  # Run a simple Cox model: Surv ~ Protein_i
+  test_fit <- coxph(y ~ X_final[, i])
+  
+  # Extract the p-value
+  p_val <- summary(test_fit)$coefficients[1, "Pr(>|z|)"]
+  univariate_p[colnames(X_final)[i]] <- p_val
+}
+
+# 2. Filter the pool to 'Statistically Proven' markers
+# We'll use p < 0.05 to be strictly objective
+proven_candidates <- names(univariate_p)[univariate_p < 0.05]
+
+# 100 survived
+length(proven_candidates)
+```
+
+### Clean up missing values
+```{r clean_missing}
+# Check for NAs in survival data directly
+keep_ids <- which(!is.na(surv_final$OS_days) & !is.na(surv_final$OS_event))
+
+# Filter both X and y using the same indices
+X_final <- X_final[keep_ids, ]
+y_final <- y[keep_ids]
+```
+
+### FINAL VERIFICATION
+If survival data has any patients with 0 days (which happens in CPTAC if a patient died or was censored the same day as their surgery/biopsy), glmnet will throw this error. 
+The Cox model is a ratio-based model that uses logarithms of time; mathematically, $\log(0)$ is undefined, and negative time doesn't exist in biological reality.
+```{r zero_day_pts}
+# find the "Zero-Day" Patients
+# Check for times <= 0
+sum(as.matrix(y_final)[,1] <= 0)
+# which IDs
+which(as.matrix(y_final)[,1] <= 0)
+
+# extract the raw matrix from the Surv object
+y_mat <- as.matrix(y_final)
+
+# add a 0.5 day offset to any 0 values - common fix and does not materially affect results
+y_mat[y_mat[,1] == 0, 1] <- 0.5
+
+# rebuild the Surv object
+y_ultra_final <- Surv(time = y_mat[,1], event = y_mat[,2])
+
+# verify - this should be 0
+cat("Times <= 0:", sum(y_ultra_final[,1] <= 0), "\n")
+```
+
+### Cross-Validated Lasso-Cox
+```{r lasso_cox}
+# Subset X to only the 'proven' candidates
+X_proven <- X_final[, proven_candidates]
+print(dim(X_proven))
+
+set.seed(42) # For reproducibility
+
+# This finds the optimal 'penalty' (lambda)
+# use Alpha = 0.9 for stability
+# add 'standardize = FALSE' since already scaled
+# use 'maxit' to give the engine more time to converge
+cv_fit <- cv.glmnet(X_proven, y_ultra_final, 
+                    family = "cox", 
+                    alpha = 0.9, # <--- ELASTIC NET DEFINED HERE
+                    standardize = FALSE, 
+                    maxit = 1e6)
+
+# 3. Extract the "Winning" Signature
+# 'lambda.min' gives the best prediction, 'lambda.1se' gives the simplest/most robust model
+best_lambda <- cv_fit$lambda.min
+# Find which index lambda.min corresponds to
+which(cv_fit$lambda == cv_fit$lambda.min)
+# Extract coefficients at best lambda
+coeffs <- coef(cv_fit, s = best_lambda)
+
+# Filter for proteins with non-zero coefficients
+optimized_signature <- coeffs[which(coeffs != 0), ]
+print(optimized_signature)
+```
+
+### Kaplan-Meier Comparison
+```{r kaplan_meier}
+# Final KM execution
+risk_scores <- stats::predict(cv_fit, 
+                              newx = X_proven, 
+                              s = "lambda.min", 
+                              type = "link")
+
+groups <- ifelse(risk_scores > median(risk_scores), "High Risk", "Low Risk")
+
+km_fit <- survfit(y_ultra_final ~ groups)
+
+# The 'survminer' version of the KM plot
+ggsurvplot(km_fit, 
+           data = data.frame(y_ultra_final),
+           pval = TRUE,             # Shows the Log-rank p-value
+           conf.int = TRUE,         # Adds the shaded uncertainty area
+           risk.table = TRUE,       # Adds the 'Number at Risk' table
+           ggtheme = theme_bw(),    # Clean white background
+           palette = c("#E41A1C", "#377EB8"),
+           title = "Survival by 18-Protein Lasso Signature")
+```
+
+### Concordance Index (C-index) Comparison
+
+The **concordance index (C-index)** is a key performance metric in survival analysis and machine learning, measuring an algorithm's ability to correctly rank patient risk scores or survival times.
+
+It evaluates pairs of subjects, determining if the subject with the higher predicted risk actually experienced the event first. In survival analysis, a **concordant pair** consists of two subjects where the model's predicted risk correctly orders their actual survival times. If Subject A has a higher predicted risk (shorter predicted survival) and actually experiences the event first (dies earlier) than Subject B, the pair is concordant. It indicates agreement between model predictions and observed outcomes. 
+
+#### Concordance Index Score Interpretation:
+*   **0.5**: No better than random chance.
+*   **0.7–0.8**: Generally considered acceptable or good.
+*   **0.8–0.9**: Strong discrimination.
+*   **> 0.9**: Excellent, sometimes suggesting overfitting. 
+
+
+Get Factor 2 scores from MOFA model and subset to common patients.
+```{r factor2_scores}
+# Load MOFA model
+mofa_model <- load_model("/Users/galebabu-ali/Documents/CPTAC-PDA/Results/MOFA_models/mofa_cptac_pdac_rna_proteome_model.hdf5")
+
+# Extract Factor 2 scores
+# as.data.frame = FALSE returns a list of matrices (one per group)
+factor2_scores <- get_factors(mofa_model, factors = 2)
+# subset to case IDs in x_proven, same order
+common_case_ids <- rownames(X_proven)
+factor2_vector <- factor2_scores[[1]][common_case_ids, 1]
+length(factor2_vector)
+head(factor2_vector)
+# test that order matches
+all(rownames(X_proven) == names(factor2_vector))
+```
+
+Get tumor stage from clinical data for C-index comparison.
+```{r tumor_stage}
+# Re-load clinical data to get the stage column
+clinical_stage_df <- read.csv("/Users/galebabu-ali/Documents/CPTAC-PDA/Data/Metadata/metadata_merged_clinical_mol-phenotype_from_paper.csv", 
+                              stringsAsFactors = FALSE)
+
+# Match ID formatting (replace - with .)
+clinical_stage_df$case_id <- gsub("-", ".", clinical_stage_df$case_id)
+
+# Subset to match factor2_vector IDs and order
+clinical_stage_subset <- clinical_stage_df %>%
+  filter(case_id %in% names(factor2_vector)) %>%
+  slice(match(names(factor2_vector), case_id))
+
+# Collapse tumor stage to I, II, III, IV (remove sub-stage letters and 'Stage ' prefix)
+clinical_stage_subset <- clinical_stage_subset %>%
+  mutate(stage_simple = gsub("Stage ", "", tumor_stage_pathological),
+         stage_simple = gsub("[ABC]$| ", "", stage_simple))
+
+# Verify alignment
+cat("Alignment Check:", all(clinical_stage_subset$case_id == names(factor2_vector)), "\n")
+print(table(clinical_stage_subset$stage_simple))
+```
+
+```{r c_index_comparison}
+
+# C-index for 18-Protein Lasso Signature
+# Uses the risk_scores generated via predict()
+c_index_lasso <- concordance(y_ultra_final ~ risk_scores)$concordance
+
+# C-index for the Multi-Omics Factor 2 (RNA + Protein consensus)
+# Uses the Factor 2 values aligned to your 132 patients
+c_index_factor2 <- concordance(y_ultra_final ~ factor2_vector)$concordance
+
+# C-index for Pathologic Stage (The Clinical Baseline)
+# Convert Roman numerals to an ordered numeric factor for comparison
+stage_order <- c("I", "II", "III", "IV")
+stage_numeric <- as.numeric(factor(clinical_stage_subset$stage_simple, levels = stage_order))
+c_index_stage <- concordance(y_ultra_final ~ stage_numeric)$concordance
+
+# --- RESULTS SUMMARY ---
+perf_summary <- data.frame(
+  Predictor = c("18-Protein Lasso Signature", "Multi-Omics Factor 2", "Pathologic Stage"),
+  C_Index = c(c_index_lasso, c_index_factor2, c_index_stage)
+)
+
+print(perf_summary)
+
+# We subtract the C-index from 1 to get the actual predictive accuracy 
+# if the direction was just inverted.
+perf_summary$True_C_Index <- ifelse(perf_summary$C_Index < 0.5, 
+                                    1 - perf_summary$C_Index, 
+                                    perf_summary$C_Index)
+print(perf_summary)
+```
+
+Why the flip happened? The `concordance` function in R's `survival` package calculates the agreement between the predictor and survival time. When using **Risk Scores** (where a higher score implies a higher risk of death/shorter survival), the default concordance output is often $1 - C$. Essentially, a raw value of **0.264** implies that in **73.6%** of patient pairs, the person with the higher risk score actually experienced the event first.
+
+### Breaking Down the Results
+
+*   **The Clinical Baseline (0.579):** This confirms that AJCC Staging alone is barely better than a coin flip for predicting survival in this specific surgical cohort. This is common in PDAC cohorts where the vast majority of patients are diagnosed at Stage II, making stage a poor discriminator for individual outcomes.
+*   **The Global Factor (0.596):** Factor 2 (RNA + Protein) improves upon clinical staging but remains relatively noisy. While it captures broad biological identities (like the Basal-like vs. Classical subtypes), many of the thousands of contributing features are not direct drivers of survival time.
+*   **The Lasso Signature (0.736):** This is the "Goldilocks" model. By selecting only the top 18 proteins, the model has filtered out the biological background noise, focusing exclusively on the features that provide the maximum separation in survival.
+
+### AUC - Time-Dependent ROC Curve
+
+```{r auc-plot}
+# First check the distribution of survival times
+summary(y_ultra_final[,1]) 
+# Or look at the KM curve's tail
+quantile(y_ultra_final[,1], probs = c(0.5, 0.75, 0.9))
+
+# Create a Time-Dependent ROC for signature at 1 and 2 years
+
+# Function to get coordinates for 1 and 2 years
+# marker = original risk_scores (High = High Hazard)
+get_roc <- function(time_days) {
+  survivalROC(Stime = y_ultra_final[, "time"],
+              status = y_ultra_final[, "status"],
+              marker = as.numeric(risk_scores),
+              predict.time = time_days,
+              method = "KM")
+}
+
+res_1yr <- get_roc(365)
+res_2yr <- get_roc(730)
+
+# --- THE PLOT ---
+# We plot FP on X and TP on Y. 
+# Because your scores are Hazards, we simply flip the axes 
+# to force the curve into the top-left quadrant.
+plot(res_1yr$FP, res_1yr$TP, type="l", col="#E41A1C", lwd=3, xlim=c(0,1), ylim=c(0,1),
+     xlab="1 - Specificity", ylab="Sensitivity",
+     main="18-Protein Signature: Predictive Accuracy")
+lines(res_2yr$FP, res_2yr$TP, col="#377EB8", lwd=3)
+abline(0, 1, lty=2, col="darkgrey")
+
+legend("bottomright", 
+       c(paste0("1-Year (AUC = ", round(res_1yr$AUC, 2), ")"),
+         paste0("2-Year (AUC = ", round(res_2yr$AUC, 2), ")")), 
+       col=c("#E41A1C", "#377EB8"), lty=1, lwd=3)
+```
+
+### Forest plot of each protein in the signature
+```{r forest_plot}
+# Extract non-zero coefficients from Lasso model
+coeffs <- as.matrix(coef(cv_fit, s = "lambda.min"))
+coeffs <- coeffs[coeffs[,1] != 0, , drop=FALSE]
+coeffs <- coeffs[rownames(coeffs) != "(Intercept)", , drop=FALSE]
+
+# plotting dataframe
+df_forest <- data.frame(
+  Protein = rownames(coeffs),
+  Coefficient = coeffs[,1],
+  HR = exp(coeffs[,1]) # Convert log-relative-risk to Hazard Ratio
+)
+
+# "Type" label for color-coding
+df_forest$Type <- ifelse(df_forest$HR > 1, "Risk Factor", "Protective")
+
+# Forest Plot
+library(ggplot2)
+
+# Ensure the labels and types are set
+df_forest$label_text <- round(df_forest$HR, 2)
+
+ggplot(df_forest, aes(x = HR, y = reorder(Protein, HR), color = Type)) +
+  geom_vline(xintercept = 1, linetype = "dashed", color = "grey50") +
+  geom_errorbarh(aes(xmin = 1, xmax = HR), height = 0, alpha = 0.6) +
+  geom_point(size = 4) +
+  
+  # Placing the HR value text next to the point
+  geom_text(aes(label = label_text), 
+            hjust = -0.4, 
+            color = "black", 
+            size = 3.5,
+            fontface = "bold") +
+  
+  scale_color_manual(values = c("Protective" = "#377EB8", "Risk Factor" = "#E41A1C")) +
+  
+  # FIX: Forced breaks and limits to show ticks past 1.0
+  scale_x_log10(limits = c(0.65, 1.35), 
+                breaks = seq(0.7, 1.3, by = 0.1),
+                labels = seq(0.7, 1.3, by = 0.1),
+                expand = expansion(mult = c(0, 0.2))) +
+  
+  labs(title = "Prognostic Impact of 18-Protein Signature",
+       x = "Hazard Ratio (log scale)",
+       y = NULL) +
+  theme_minimal() +
+  theme(
+    plot.title = element_text(size = 20, face = "bold", hjust = 0.5, margin = margin(b = 15)),
+    axis.text.y = element_text(size = 12, face = "bold", color = "black"),
+    axis.text.x = element_text(size = 12, face = "bold", color = "black"),
+    axis.title.x = element_text(size = 13, face = "bold", vjust = -1),
+    panel.grid.major.x = element_line(color = "grey90"), # Vertical lines at ticks
+    panel.grid.minor.x = element_blank()
+  )
+```

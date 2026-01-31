@@ -5,9 +5,6 @@ output: github_document
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
-# Set working directory to project root
-library(here)
-knitr::opts_knit$set(root.dir = here::here())
 # packages
 library(MOFA2)
 library(tidyverse)
@@ -31,7 +28,6 @@ factor_index <- 2
 # Extract weights for Factor 2 across all views
 weights <- get_weights(MOFAmodel, factors = factor_index, as.data.frame = TRUE)
 ```
-
 
 
 ### GSEA
@@ -64,6 +60,14 @@ topPathways <- fgseaRes %>%
   head(15) %>%
   arrange(desc(abs(NES)))
 
+# extract unique proteins from all top 15 leading edges
+leadingEdgeGenes <- unique(unlist(topPathways$leadingEdge))
+length(leadingEdgeGenes)  # number of unique genes in leading edges
+
+# save leading edge genes
+write.table(leadingEdgeGenes, 
+            file = "/Users/galebabu-ali/Documents/CPTAC-PDA/Results/MOFA_Factor2_Protein_LeadingEdgeGenes_top15PWYs.txt",
+            quote = FALSE, row.names = FALSE, col.names = FALSE)
 
 # Display results in a pretty table
 topPathways %>%
