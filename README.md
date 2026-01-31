@@ -44,6 +44,7 @@ The purpose of this analysis is to find a molecular signature that is an indepen
 | 8 | `survival_analysis.rmd` | Survival analysis using MOFA factors |
 | 9 | `factor2_under_the_hood.rmd` | Deep dive into Factor 2 genes/proteins |
 | 10 | `gsea_mofa_factor2.rmd` | Gene Set Enrichment Analysis using MOFA Factor 2 |
+| 11 | `find_discriminatory_signature.rmd` | Survival signature discovery (Lasso-Cox) |
 
 > **Note:** Mutation data explained <0.5% of variance, so MOFAmodel_1 (RNA + protein only) was used for downstream analysis.
 
@@ -167,6 +168,9 @@ devtools::install_github("wwsean08/runPURIST")
 | tidyverse | CRAN | Data wrangling & visualization |
 | survival | CRAN | Survival analysis |
 | survminer | CRAN | Survival visualization |
+| glmnet | CRAN | Lasso-Cox regression |
+| timeROC | CRAN | Time-dependent ROC analysis |
+| impute | Bioconductor | KNN imputation for missing values |
 | fgsea | Bioconductor | Gene set enrichment analysis |
 | GGally | CRAN | Pairs plots & correlations |
 | psych | CRAN | Correlation utilities |
