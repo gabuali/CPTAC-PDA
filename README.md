@@ -45,6 +45,8 @@ The purpose of this analysis is to find a molecular signature that is an indepen
 | 9 | `factor2_under_the_hood.rmd` | Deep dive into Factor 2 genes/proteins |
 | 10 | `gsea_mofa_factor2.rmd` | Gene Set Enrichment Analysis using MOFA Factor 2 |
 | 11 | `find_discriminatory_signature.rmd` | Survival signature discovery (Lasso-Cox) |
+| 12 | `apgi_prep_data.rmd` | Prepare APGI protein matrix for validation |
+| 13 | `validate_signature_apgi.rmd` | External validation of 18-protein signature in APGI cohort |
 
 > **Note:** Mutation data explained <0.5% of variance, so MOFAmodel_1 (RNA + protein only) was used for downstream analysis.
 
@@ -57,6 +59,7 @@ The purpose of this analysis is to find a molecular signature that is an indepen
 | [Factor 2 Deep Dive](https://gabuali.github.io/CPTAC-PDA/Results/factor2_under_the_hood.html) | Top genes/proteins driving Factor 2 |
 | [GSEA Factor 2](https://gabuali.github.io/CPTAC-PDA/Results/gsea_mofa_factor2.html) | Hallmark pathway enrichment analysis |
 | [Survival Signature Discovery](https://gabuali.github.io/CPTAC-PDA/Results/find_discriminatory_signature.html) | 18-Protein Lasso Signature Analysis |
+| [APGI Signature Validation](https://gabuali.github.io/CPTAC-PDA/Results/validate_signature_apgi.html) | External validation in independent APGI cohort |
 
 ---
 
@@ -87,6 +90,24 @@ Downloaded from [PDC Study PDC000270](https://pdc.cancer.gov/pdc/study/PDC000270
 ### Clinical Metadata
 - `PDAC_clinical.csv` — from Python `cptac` module
 - `Metadata_Report_CPTAC_PDA_2025_10_20-1.csv` — from [Cancer Imaging Archive](https://www.cancerimagingarchive.net/analysis-result/cptac-pda-tumor-annotations/)
+
+---
+
+## ✅ Signature Validation in APGI-PDA Study Protein Data
+
+The 18-protein survival signature identified in this analysis is validated using independent proteomics data from the Australian Pancreatic Cancer Genome Initiative (APGI).
+
+**APGI Study Publication:**  
+[Mapping the Proteomic Landscape of Pancreatic Ductal Adenocarcinoma](https://aacrjournals.org/cancerrescommun/article/5/10/1879/766828/Mapping-the-Proteomic-Landscape-of-Pancreatic)
+
+**Data Source:**  
+PRIDE Archive Project PXD059074  
+https://ftp.pride.ebi.ac.uk/pride/data/archive/2025/09/PXD059074/
+
+| File | Description |
+|------|-------------|
+| `APGI_protein_matrix_and_metadata.csv` | Protein abundance matrix with sample metadata |
+| `APGI_protein_and_gene_names.csv` | Protein/gene name mapping, populated from `E0021_P01_SRL_with_triplicates-srl.tsv` |
 
 ---
 
@@ -182,4 +203,4 @@ devtools::install_github("wwsean08/runPURIST")
 
 ## 📄 License
 
-This project uses publicly available CPTAC data. Please cite the original study when using this analysis.
+This project uses publicly available CPTAC and APGI data. Please cite the original studies where appropriate, when using this analysis.

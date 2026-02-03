@@ -420,3 +420,18 @@ ggplot(df_forest, aes(x = HR, y = reorder(Protein, HR), color = Type)) +
     panel.grid.minor.x = element_blank()
   )
 ```
+
+
+### Extract the final signature proteins and coefficients
+```{r final_signature}
+final_signature <- data.frame(
+  Protein = names(optimized_signature),
+  Coefficient = as.numeric(optimized_signature),
+  Hazard_Ratio = exp(as.numeric(optimized_signature))
+)
+print(final_signature)
+# Save to CSV
+write.csv(final_signature, 
+          file = "/Users/galebabu-ali/Documents/CPTAC-PDA/Results/MOFA_Factor2_Protein_LassoSignature_18Proteins.csv", 
+          row.names = FALSE)
+```

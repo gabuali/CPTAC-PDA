@@ -1,0 +1,78 @@
+---
+title: "APGI-PDA data-prep"
+output: github_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+```
+
+Prepare protein matrix and clinical metadata from APGI-PDA cohort for validation of 18-protein signature for discrimination of short-term survivors in pancreatic ductal adenocarcinoma (PDA).
+```{r load_protein_metadata}
+# Load protein data
+prot_df <- read.csv("/Users/galebabu-ali/Documents/CPTAC-PDA/Data/APGI-PDA/APGI_protein_matrix_and_metadata.csv", row.names = 1)
+print(dim(prot_df))
+# subset to only protein data; last protein column is "Q9Y6Y8"
+prot_data <- prot_df %>%
+  select(1:5599)
+print(dim(prot_data))
+tail(colnames(prot_data))
+# save protein data
+write.csv(prot_data, "/Users/galebabu-ali/Documents/CPTAC-PDA/Data/APGI-PDA/APGI_protein_matrix.csv", row.names = TRUE)
+
+# subset to only clinical metadata; first clinical column is "Prep_LIMS_ID"
+clinical_data <- prot_df %>%
+  select(Prep_LIMS_ID:ncol(prot_df))
+print(dim(clinical_data))
+head(colnames(clinical_data))
+# save clinical data
+write.csv(clinical_data, "/Users/galebabu-ali/Documents/CPTAC-PDA/Data/APGI-PDA/APGI_clinical_metadata.csv", row.names = TRUE)
+```
+
+Prepare gene symbol mapping for protein data
+```{r gene_symbol_mapping}
+# extract gene symbol mapping
+gene_names <- read.csv("/Users/galebabu-ali/Documents/CPTAC-PDA/Data/APGI-PDA/E0021_P01_SRL_with_triplicates-srl.tsv", sep = "\t")
+# subset to cols ProteinGroup	ProteinName	Genes	UniprotID
+gene_names <- gene_names %>%
+  select(ProteinGroup, ProteinName, Genes, UniprotID)
+head(gene_names)
+# deduplicate identical rows
+gene_names <- gene_names[!duplicated(gene_names), ]
+print(dim(gene_names))
+# save gene symbol mapping
+write.csv(gene_names, "/Users/galebabu-ali/Documents/CPTAC-PDA/Data/APGI-PDA/APGI_protein_and_gene_names.csv", row.names = FALSE)
+```
+
+Map gene names to protein matrix col names.
+```{r map_gene_names}
+# get col names of protein data
+prot_colnames <- colnames(prot_data)
+# create mapping data frame
+mapping_df <- data.frame(ProteinGroup = prot_colnames)
+# join with gene names to get gene symbols
+mapping_df <- mapping_df %>%
+  left_join(gene_names, by = "ProteinGroup")
+head(mapping_df)
+
+# match col names in protein data with gene symbols
+# deduplicate mapping_df to match prot_data column count
+mapping_df <- mapping_df[!duplicated(mapping_df$ProteinGroup), ]
+print(dim(mapping_df))
+cat("Protein data columns:", ncol(prot_data), "\n")
+cat("Mapping rows:", nrow(mapping_df), "\n")
+
+# create named vector for renaming (use Genes column, fallback to ProteinGroup if NA)
+new_colnames <- ifelse(is.na(mapping_df$Genes) | mapping_df$Genes == "", 
+                       mapping_df$ProteinGroup, 
+                       mapping_df$Genes)
+
+# rename protein data columns
+colnames(prot_data) <- new_colnames
+head(colnames(prot_data))
+tail(colnames(prot_data))
+
+# save renamed protein data
+write.csv(prot_data, "/Users/galebabu-ali/Documents/CPTAC-PDA/Data/APGI-PDA/APGI_protein_matrix_gene_symbols.csv", row.names = TRUE)
+```
