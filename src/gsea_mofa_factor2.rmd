@@ -15,7 +15,7 @@ library(kableExtra)
 ### Load MOFA model RNA and proteome data
 ```{r load-model}
 # Load the MOFA model
-model_path <- "../Results/MOFA_models/mofa_cptac_pdac_rna_proteome_model.hdf5"
+model_path <- "/Users/galebabu-ali/Documents/CPTAC-PDA/Results/MOFA_models/mofa_cptac_pdac_rna_proteome_model.hdf5"
 MOFAmodel <- load_model(model_path)
 summary(MOFAmodel)
 ```
@@ -45,7 +45,7 @@ f2_ranks <- sort(f2_ranks, decreasing = TRUE)
 
 # Load the Hallmark pathways, 
 # downloaded from https://www.gsea-msigdb.org/gsea/msigdb/collections.jsp
-pathways_h <- gmtPathways("../Data/h.all.v2025.1.Hs.symbols.gmt")
+pathways_h <- gmtPathways("/Users/galebabu-ali/Documents/CPTAC-PDA/Data/h.all.v2025.1.Hs.symbols.gmt")
 
 # Run GSEA
 fgseaRes <- fgsea(pathways = pathways_h, 
