@@ -34,12 +34,12 @@ Validates the 18-protein Lasso-Cox signature from CPTAC-PDA on the independent T
 
 ```{r load}
 # Validation data (prepared in 01_prepare_tong_validation_data.Rmd)
-val <- read.csv(here("Data", "Tong-PDA", "tong_validation_data_prepared.csv"))
+val <- read.csv(here("Tong-PDA", "tong_validation_data_prepared.csv"))
 cat("Validation data:", nrow(val), "samples\n")
 cat("Proteins:", sum(!names(val) %in% c("RiskScore", "SampleID")), "\n")
 
 # Survival data
-surv_raw <- read_excel(here("Data", "Tong-PDA", "13045_2022_1384_MOESM23_ESM.xlsx"), sheet = "Table S1B")
+surv_raw <- read_excel(here("Tong-PDA", "13045_2022_1384_MOESM23_ESM.xlsx"), sheet = "Table S1B")
 surv <- data.frame(
   SampleID = as.character(surv_raw[[1]]),
   OS_days = as.numeric(as.character(surv_raw[["Overall Survival (Months)"]])),
