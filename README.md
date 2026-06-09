@@ -19,7 +19,6 @@ The purpose of this analysis is to find a molecular signature that is an indepen
 │   ├── MOFA_input/           # Prepared matrices for MOFA
 │   ├── RNA_count_tables/     # Raw and normalized RNA counts
 │   ├── RNAseq_raw/           # GDC raw downloads
-│   └── Tong-PDA/             # Tong et al. validation data
 ├── Results/
 │   ├── MOFA_models/          # Trained MOFA HDF5 models
 │   ├── PurIST_Classification_Results.csv  # Basal/Classical subtype calls
@@ -29,6 +28,7 @@ The purpose of this analysis is to find a molecular signature that is an indepen
 │   ├── gsea_mofa_factor2.html
 │   ├── mofa_downstream_exploratory.html
 │   └── survival_analysis.html
+├── Tong-PDA/                # Tong et al. validation data
 └── src/                      # Analysis scripts
 ```
 
@@ -108,7 +108,9 @@ The 18-protein survival signature is further validated using independent proteom
 **Tong Study Publication:** [Proteomic landscape of pancreatic ductal adenocarcinoma](https://doi.org/10.1186/s13045-022-01384-z)
 *Journal of Hematology & Oncology, 2022*
 
-**Data Source:** Supplemental Table S3A (protein groups) and Table S1B (clinical metadata)
+**Data Sources:**
+
+**Proteomics & Clinical Data:** Supplemental Table S3A (protein groups) and Table S1B (clinical metadata)
 
 | File | Description |
 |------|-------------|
@@ -116,6 +118,8 @@ The 18-protein survival signature is further validated using independent proteom
 | `13045_2022_1384_MOESM23_ESM.xlsx` | Table S1B: Clinical metadata with overall survival |
 | `tong_validation_data_prepared.csv` | Z-score normalized signature proteins with risk scores |
 | `tong_signature_proteins_scaled.csv` | Scaled expression matrix of signature proteins |
+
+**Raw RNA-seq:** Available from the [Genome Sequence Archive for Human (GSA-Human)](https://ngdc.cncb.ac.cn/gsa-human/browse/HRA002195) under accession HRA002195
 
 **Validation Results:**
 - 11/18 signature proteins passed QC (16 found, 5 removed by >20% NA filter)
@@ -234,4 +238,4 @@ devtools::install_github("wwsean08/runPURIST")
 
 ## 📄 License
 
-This project uses publicly available CPTAC and APGI data. Please cite the original studies where appropriate, when using this analysis.
+This project uses publicly available CPTAC, APGI, and Tong data. Please cite the original studies where appropriate, when using this analysis.
