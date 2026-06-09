@@ -13,14 +13,18 @@ The purpose of this analysis is to find a molecular signature that is an indepen
 ```
 ├── Data/
 │   ├── Annotations/          # Gene annotations (GENCODE v22)
+│   ├── APGI-PDA/             # APGI validation data
 │   ├── LinkedOmics_data/     # Transcriptome, proteome, mutation data
 │   ├── Metadata/             # Clinical and sample metadata
 │   ├── MOFA_input/           # Prepared matrices for MOFA
 │   ├── RNA_count_tables/     # Raw and normalized RNA counts
-│   └── RNAseq_raw/           # GDC raw downloads
+│   ├── RNAseq_raw/           # GDC raw downloads
+│   └── Tong-PDA/             # Tong et al. validation data
 ├── Results/
 │   ├── MOFA_models/          # Trained MOFA HDF5 models
 │   ├── PurIST_Classification_Results.csv  # Basal/Classical subtype calls
+│   ├── 01_prepare_tong_validation_data.html
+│   ├── 02_validation_survival_analysis.html
 │   ├── factor2_under_the_hood.html
 │   ├── gsea_mofa_factor2.html
 │   ├── mofa_downstream_exploratory.html
@@ -47,6 +51,8 @@ The purpose of this analysis is to find a molecular signature that is an indepen
 | 11 | `find_discriminatory_signature.rmd` | Survival signature discovery (Lasso-Cox) |
 | 12 | `apgi_prep_data.rmd` | Prepare APGI protein matrix for validation |
 | 13 | `validate_signature_apgi.rmd` | External validation of 18-protein signature in APGI cohort |
+| 14 | `01_prepare_tong_validation_data.Rmd` | Prepare Tong et al. proteomics data for validation |
+| 15 | `02_validation_survival_analysis.Rmd` | External validation of 18-protein signature in Tong cohort |
 
 > **Note:** Mutation data explained <0.5% of variance, so MOFAmodel_1 (RNA + protein only) was used for downstream analysis.
 
@@ -60,6 +66,8 @@ The purpose of this analysis is to find a molecular signature that is an indepen
 | [GSEA Factor 2](https://gabuali.github.io/CPTAC-PDA/Results/gsea_mofa_factor2.html) | Hallmark pathway enrichment analysis |
 | [Survival Signature Discovery](https://gabuali.github.io/CPTAC-PDA/Results/find_discriminatory_signature.html) | 18-Protein Lasso Signature Analysis |
 | [APGI Signature Validation](https://gabuali.github.io/CPTAC-PDA/Results/validate_signature_apgi.html) | External validation in independent APGI cohort |
+| [Tong Data Preparation](https://gabuali.github.io/CPTAC-PDA/Results/01_prepare_tong_validation_data.html) | Prepare Tong et al. proteomics data for validation |
+| [Tong Signature Validation](https://gabuali.github.io/CPTAC-PDA/Results/02_validation_survival_analysis.html) | External validation of 18-protein signature in Tong cohort |
 
 ---
 
@@ -90,6 +98,29 @@ Downloaded from [PDC Study PDC000270](https://pdc.cancer.gov/pdc/study/PDC000270
 ### Clinical Metadata
 - `PDAC_clinical.csv` — from Python `cptac` module
 - `Metadata_Report_CPTAC_PDA_2025_10_20-1.csv` — from [Cancer Imaging Archive](https://www.cancerimagingarchive.net/analysis-result/cptac-pda-tumor-annotations/)
+
+---
+
+## ✅ Signature Validation in Tong-PDA Study
+
+The 18-protein survival signature is further validated using independent proteomics data from the Tong et al. (2022) PDAC cohort.
+
+**Tong Study Publication:** [Proteomic landscape of pancreatic ductal adenocarcinoma](https://doi.org/10.1186/s13045-022-01384-z)
+*Journal of Hematology & Oncology, 2022*
+
+**Data Source:** Supplemental Table S3A (protein groups) and Table S1B (clinical metadata)
+
+| File | Description |
+|------|-------------|
+| `13045_2022_1384_MOESM25_ESM.xlsx` | Table S3A: 7,055 protein groups by DIA-MS (226 tumors, 220 NATs) |
+| `13045_2022_1384_MOESM23_ESM.xlsx` | Table S1B: Clinical metadata with overall survival |
+| `tong_validation_data_prepared.csv` | Z-score normalized signature proteins with risk scores |
+| `tong_signature_proteins_scaled.csv` | Scaled expression matrix of signature proteins |
+
+**Validation Results:**
+- 11/18 signature proteins passed QC (16 found, 5 removed by >20% NA filter)
+- C-index (adjusted): 0.59
+- HR per unit RiskScore: 2.74 (95% CI: 1.42-5.27, p = 0.0025)
 
 ---
 
