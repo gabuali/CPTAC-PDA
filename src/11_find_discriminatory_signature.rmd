@@ -11,6 +11,7 @@ library(survival)
 library(impute)
 library(survminer)
 library(MOFA2)
+library(here)
 library(timeROC)
 library(survivalROC)
 ```
@@ -30,7 +31,7 @@ The goal is to find the highly discriminatory subset of genes/proteins that prov
 Leading edge genes from GSEA analysis of MOFA Factor 2 (protein view).
 ```{r leadingEdgeGenes}
 # leading edge genes from top 15 GSEA pathways - see gsea_mofa_factor2.rmd
-leading_edge_genes_file <- "/Users/galebabu-ali/Documents/CPTAC-PDA/Results/MOFA_Factor2_Protein_LeadingEdgeGenes_top15PWYs.txt"
+leading_edge_genes_file <- here("Results", "MOFA_Factor2_Protein_LeadingEdgeGenes_top15PWYs.txt")
 leading_edge_genes <- scan(leading_edge_genes_file, what = character())
 length(leading_edge_genes)
 head(leading_edge_genes)
@@ -40,7 +41,7 @@ head(leading_edge_genes)
 Survival data.
 ```{r survival_data}
 # Load clinical metadata with survival information
-clinical_df <- read.csv("/Users/galebabu-ali/Documents/CPTAC-PDA/Data/Metadata/metadata_merged_clinical_mol-phenotype_from_paper.csv", 
+clinical_df <- read.csv(here("Data", "Metadata", "metadata_merged_clinical_mol-phenotype_from_paper.csv"), 
                         row.names = 1, 
                         stringsAsFactors = FALSE,
                         na.strings = c("", " ", "NA", "N/A", "na", "null", "NULL", "NaN"))
@@ -65,7 +66,7 @@ head(surv_df)
 Protein expression data for leading edge genes.
 ```{r protein_expression}
 # Load protein expression data
-prot_df <- read.csv("/Users/galebabu-ali/Documents/CPTAC-PDA/Data/MOFA_input/proteome_top5k_hvgs_scaled_tumor.csv", row.names = 1)
+prot_df <- read.csv(here("Data", "MOFA_input", "proteome_top5k_hvgs_scaled_tumor.csv"), row.names = 1)
 print(dim(prot_df))
 
 # subset to leading edge genes
