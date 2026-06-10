@@ -248,7 +248,7 @@ It evaluates pairs of subjects, determining if the subject with the higher predi
 Get Factor 2 scores from MOFA model and subset to common patients.
 ```{r factor2_scores}
 # Load MOFA model
-mofa_model <- load_model("/Users/galebabu-ali/Documents/CPTAC-PDA/Results/MOFA_models/mofa_cptac_pdac_rna_proteome_model.hdf5")
+mofa_model <- load_model(here("Results", "MOFA_models", "mofa_cptac_pdac_rna_proteome_model.hdf5"))
 
 # Extract Factor 2 scores
 # as.data.frame = FALSE returns a list of matrices (one per group)
@@ -265,7 +265,7 @@ all(rownames(X_proven) == names(factor2_vector))
 Get tumor stage from clinical data for C-index comparison.
 ```{r tumor_stage}
 # Re-load clinical data to get the stage column
-clinical_stage_df <- read.csv("/Users/galebabu-ali/Documents/CPTAC-PDA/Data/Metadata/metadata_merged_clinical_mol-phenotype_from_paper.csv", 
+clinical_stage_df <- read.csv(here("Data", "Metadata", "metadata_merged_clinical_mol-phenotype_from_paper.csv"), 
                               stringsAsFactors = FALSE)
 
 # Match ID formatting (replace - with .)
@@ -433,6 +433,6 @@ final_signature <- data.frame(
 print(final_signature)
 # Save to CSV
 write.csv(final_signature, 
-          file = "/Users/galebabu-ali/Documents/CPTAC-PDA/Results/MOFA_Factor2_Protein_LassoSignature_18Proteins.csv", 
+          file = here("Results", "MOFA_Factor2_Protein_LassoSignature_18Proteins.csv"), 
           row.names = FALSE)
 ```

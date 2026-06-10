@@ -11,7 +11,7 @@ library(tidyverse)
 Prepare protein matrix and clinical metadata from APGI-PDA cohort for validation of 18-protein signature for discrimination of short-term survivors in pancreatic ductal adenocarcinoma (PDA).
 ```{r load_protein_metadata}
 # Load protein data
-prot_df <- read.csv("/Users/galebabu-ali/Documents/CPTAC-PDA/Data/APGI-PDA/APGI_protein_matrix_and_metadata.csv", row.names = 1)
+prot_df <- read.csv(here("Data", "APGI-PDA", "APGI_protein_matrix_and_metadata.csv"), row.names = 1)
 print(dim(prot_df))
 # subset to only protein data; last protein column is "Q9Y6Y8"
 prot_data <- prot_df %>%
@@ -19,7 +19,7 @@ prot_data <- prot_df %>%
 print(dim(prot_data))
 tail(colnames(prot_data))
 # save protein data
-write.csv(prot_data, "/Users/galebabu-ali/Documents/CPTAC-PDA/Data/APGI-PDA/APGI_protein_matrix.csv", row.names = TRUE)
+write.csv(prot_data, here("Data", "APGI-PDA", "APGI_protein_matrix.csv"), row.names = TRUE)
 
 # subset to only clinical metadata; first clinical column is "Prep_LIMS_ID"
 clinical_data <- prot_df %>%
@@ -27,13 +27,13 @@ clinical_data <- prot_df %>%
 print(dim(clinical_data))
 head(colnames(clinical_data))
 # save clinical data
-write.csv(clinical_data, "/Users/galebabu-ali/Documents/CPTAC-PDA/Data/APGI-PDA/APGI_clinical_metadata.csv", row.names = TRUE)
+write.csv(clinical_data, here("Data", "APGI-PDA", "APGI_clinical_metadata.csv"), row.names = TRUE)
 ```
 
 Prepare gene symbol mapping for protein data
 ```{r gene_symbol_mapping}
 # extract gene symbol mapping
-gene_names <- read.csv("/Users/galebabu-ali/Documents/CPTAC-PDA/Data/APGI-PDA/E0021_P01_SRL_with_triplicates-srl.tsv", sep = "\t")
+gene_names <- read.csv(here("Data", "APGI-PDA", "E0021_P01_SRL_with_triplicates-srl.tsv"), sep = "\t")
 # subset to cols ProteinGroup	ProteinName	Genes	UniprotID
 gene_names <- gene_names %>%
   select(ProteinGroup, ProteinName, Genes, UniprotID)
@@ -42,7 +42,7 @@ head(gene_names)
 gene_names <- gene_names[!duplicated(gene_names), ]
 print(dim(gene_names))
 # save gene symbol mapping
-write.csv(gene_names, "/Users/galebabu-ali/Documents/CPTAC-PDA/Data/APGI-PDA/APGI_protein_and_gene_names.csv", row.names = FALSE)
+write.csv(gene_names, here("Data", "APGI-PDA", "APGI_protein_and_gene_names.csv"), row.names = FALSE)
 ```
 
 Map gene names to protein matrix col names.
@@ -74,5 +74,5 @@ head(colnames(prot_data))
 tail(colnames(prot_data))
 
 # save renamed protein data
-write.csv(prot_data, "/Users/galebabu-ali/Documents/CPTAC-PDA/Data/APGI-PDA/APGI_protein_matrix_gene_symbols.csv", row.names = TRUE)
+write.csv(prot_data, here("Data", "APGI-PDA", "APGI_protein_matrix_gene_symbols.csv"), row.names = TRUE)
 ```

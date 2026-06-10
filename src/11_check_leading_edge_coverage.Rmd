@@ -39,12 +39,12 @@ sig <- read.csv(here("Results", "MOFA_Factor2_Protein_LassoSignature_18Proteins.
 cat("Signature proteins:", nrow(sig), "\n")
 
 # CPTAC proteome (reference - TMT discovery cohort)
-cptac_prot <- read.csv(here("MOFA_input", "proteome_top5k_hvgs_scaled_tumor.csv"), 
+cptac_prot <- read.csv(here("Data", "MOFA_input", "proteome_top5k_hvgs_scaled_tumor.csv"), 
                        row.names = 1)
 cat("CPTAC proteins:", nrow(cptac_prot), "\n")
 
 # Tong protein matrix (tumor samples only)
-tong_raw <- read_excel(here("Tong-PDA", "13045_2022_1384_MOESM25_ESM.xlsx"), 
+tong_raw <- read_excel(here("Data", "Tong-PDA", "13045_2022_1384_MOESM25_ESM.xlsx"), 
                        sheet = "Table S3A ")
 t_cols <- grep("T$", names(tong_raw), value = TRUE)
 symbols <- tong_raw[[1]]
@@ -52,10 +52,10 @@ cat("Tong tumor samples:", length(t_cols), "\n")
 cat("Tong proteins:", length(symbols), "\n")
 
 # APGI protein matrix (tumor samples)
-apgi_raw <- read.csv(here("APGI-PDA", "APGI_protein_matrix_and_metadata.csv"), 
+apgi_raw <- read.csv(here("Data", "APGI-PDA", "APGI_protein_matrix_and_metadata.csv"), 
                      row.names = 1, check.names = FALSE)
 apgi_prot_uniprot <- apgi_raw[, !names(apgi_raw) %in% c("Length.of.Follow.up..days.", "OS")]
-apgi_gene_map <- read.csv(here("APGI-PDA", "APGI_protein_and_gene_names.csv"))
+apgi_gene_map <- read.csv(here("Data", "APGI-PDA", "APGI_protein_and_gene_names.csv"))
 uniprot_to_gene <- setNames(apgi_gene_map$Genes, apgi_gene_map$UniprotID)
 mapped <- uniprot_to_gene[names(apgi_prot_uniprot)]
 mapped <- mapped[!is.na(mapped)]

@@ -25,9 +25,9 @@ Validation of the 18-protein Lasso-Cox prognostic signature (derived from CPTAC-
 
 ```{r load_data}
 # Paths
-apgi_prot_path <- "/Users/galebabu-ali/Documents/CPTAC-PDA/Data/APGI-PDA/APGI_protein_matrix_gene_symbols.csv"
-apgi_clin_path <- "/Users/galebabu-ali/Documents/CPTAC-PDA/Data/APGI-PDA/APGI_clinical_metadata.csv"
-sig_path <- "/Users/galebabu-ali/Documents/CPTAC-PDA/Results/MOFA_Factor2_Protein_LassoSignature_18Proteins.csv"
+apgi_prot_path <- here("Data", "APGI-PDA", "APGI_protein_matrix_gene_symbols.csv")
+apgi_clin_path <- here("Data", "APGI-PDA", "APGI_clinical_metadata.csv")
+sig_path <- here("Results", "MOFA_Factor2_Protein_LassoSignature_18Proteins.csv")
 
 # Load Data
 apgi_prot <- read.csv(apgi_prot_path, row.names = 1, check.names = FALSE)

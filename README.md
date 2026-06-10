@@ -17,8 +17,10 @@ The purpose of this analysis is to find a molecular signature that is an indepen
 │   ├── LinkedOmics_data/     # Transcriptome, proteome, mutation data
 │   ├── Metadata/             # Clinical and sample metadata
 │   ├── MOFA_input/           # Prepared matrices for MOFA
+│   ├── MSigDB_genesets/      # Hallmark gene set collection
 │   ├── RNA_count_tables/     # Raw and normalized RNA counts
 │   ├── RNAseq_raw/           # GDC raw downloads
+│   └── Tong-PDA/             # Tong et al. validation data
 ├── Results/
 │   ├── MOFA_models/          # Trained MOFA HDF5 models
 │   ├── PurIST_Classification_Results.csv  # Basal/Classical subtype calls
@@ -29,7 +31,6 @@ The purpose of this analysis is to find a molecular signature that is an indepen
 │   ├── gsea_mofa_factor2.html
 │   ├── mofa_downstream_exploratory.html
 │   └── survival_analysis.html
-├── Tong-PDA/                # Tong et al. validation data
 └── src/                      # Analysis scripts
 ```
 
@@ -117,10 +118,10 @@ The 18-protein survival signature is further validated using independent proteom
 
 | File | Description |
 |------|-------------|
-| `13045_2022_1384_MOESM25_ESM.xlsx` | Table S3A: 7,055 protein groups by DIA-MS (226 tumors, 220 NATs) |
-| `13045_2022_1384_MOESM23_ESM.xlsx` | Table S1B: Clinical metadata with overall survival |
-| `tong_validation_data_prepared.csv` | Z-score normalized signature proteins with risk scores |
-| `tong_signature_proteins_scaled.csv` | Scaled expression matrix of signature proteins |
+| `Data/Tong-PDA/13045_2022_1384_MOESM25_ESM.xlsx` | Table S3A: 7,055 protein groups by DIA-MS (226 tumors, 220 NATs) |
+| `Data/Tong-PDA/13045_2022_1384_MOESM23_ESM.xlsx` | Table S1B: Clinical metadata with overall survival |
+| `Data/Tong-PDA/tong_validation_data_prepared.csv` | Z-score normalized signature proteins with risk scores |
+| `Data/Tong-PDA/tong_signature_proteins_scaled.csv` | Scaled expression matrix of signature proteins |
 
 **Raw RNA-seq:** Available from the [Genome Sequence Archive for Human (GSA-Human)](https://ngdc.cncb.ac.cn/gsa-human/browse/HRA002195) under accession HRA002195
 
@@ -144,8 +145,8 @@ https://ftp.pride.ebi.ac.uk/pride/data/archive/2025/09/PXD059074/
 
 | File | Description |
 |------|-------------|
-| `APGI_protein_matrix_and_metadata.csv` | Protein abundance matrix with sample metadata |
-| `APGI_protein_and_gene_names.csv` | Protein/gene name mapping, populated from `E0021_P01_SRL_with_triplicates-srl.tsv` |
+| `Data/APGI-PDA/APGI_protein_matrix_and_metadata.csv` | Protein abundance matrix with sample metadata |
+| `Data/APGI-PDA/APGI_protein_and_gene_names.csv` | Protein/gene name mapping, populated from `E0021_P01_SRL_with_triplicates-srl.tsv` |
 
 ---
 

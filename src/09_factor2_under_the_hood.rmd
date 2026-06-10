@@ -22,7 +22,7 @@ Positive weights mean the gene/protein is upregulated in Factor 2 High (the high
 ### Load MOFA model RNA and proteome data
 ```{r load-model}
 # Load the MOFA model (Results is at project root, one level up from src/)
-model_path <- here("..", "Results", "MOFA_models", "mofa_cptac_pdac_rna_proteome_model.hdf5")
+model_path <- here("Results", "MOFA_models", "mofa_cptac_pdac_rna_proteome_model.hdf5")
 MOFAmodel <- load_model(model_path)
 summary(MOFAmodel)
 ```
