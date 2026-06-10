@@ -1,0 +1,211 @@
+---
+title: "Coverage of MOFA Factor 2 Leading Edge Proteins in Validation Cohorts"
+subtitle: "Per-protein detection rates of 361 leading edge proteins in APGI and Tong tumor samples"
+author: "CPTAC-PDA Analysis"
+date: "`r Sys.Date()`"
+output: 
+  html_document:
+    toc: true
+    toc_float: true
+    code_folding: show
+    theme: flatly
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
+library(tidyverse)
+library(readxl)
+library(here)
+```
+
+## Overview
+
+The 18-protein Lasso-Cox signature was derived from a pool of 361 leading edge proteins identified by GSEA of MOFA Factor 2 protein loadings. Before building the Lasso model, we assess how many of these 361 proteins are reliably detected in the independent validation cohorts (APGI and Tong). This informs feature selection — proteins with low detection rates in external data will have limited generalizability.
+
+**Key question:** What fraction of leading edge proteins are detected in ≥60%, ≥70%, ≥80% of tumor samples in each validation cohort?
+
+---
+
+## 1. Load Data
+
+```{r load}
+# Leading edge genes from GSEA of MOFA Factor 2 (Protein view)
+leading_edge <- scan(here("Results", "MOFA_Factor2_Protein_LeadingEdgeGenes_top15PWYs.txt"), 
+                     what = character())
+cat("Leading edge proteins:", length(leading_edge), "\n")
+
+# 18-protein Lasso-Cox signature
+sig <- read.csv(here("Results", "MOFA_Factor2_Protein_LassoSignature_18Proteins.csv"))
+cat("Signature proteins:", nrow(sig), "\n")
+
+# CPTAC proteome (reference - TMT discovery cohort)
+cptac_prot <- read.csv(here("MOFA_input", "proteome_top5k_hvgs_scaled_tumor.csv"), 
+                       row.names = 1)
+cat("CPTAC proteins:", nrow(cptac_prot), "\n")
+
+# Tong protein matrix (tumor samples only)
+tong_raw <- read_excel(here("Tong-PDA", "13045_2022_1384_MOESM25_ESM.xlsx"), 
+                       sheet = "Table S3A ")
+t_cols <- grep("T$", names(tong_raw), value = TRUE)
+symbols <- tong_raw[[1]]
+cat("Tong tumor samples:", length(t_cols), "\n")
+cat("Tong proteins:", length(symbols), "\n")
+
+# APGI protein matrix (tumor samples)
+apgi_raw <- read.csv(here("APGI-PDA", "APGI_protein_matrix_and_metadata.csv"), 
+                     row.names = 1, check.names = FALSE)
+apgi_prot_uniprot <- apgi_raw[, !names(apgi_raw) %in% c("Length.of.Follow.up..days.", "OS")]
+apgi_gene_map <- read.csv(here("APGI-PDA", "APGI_protein_and_gene_names.csv"))
+uniprot_to_gene <- setNames(apgi_gene_map$Genes, apgi_gene_map$UniprotID)
+mapped <- uniprot_to_gene[names(apgi_prot_uniprot)]
+mapped <- mapped[!is.na(mapped)]
+apgi_prot <- apgi_prot_uniprot[, names(mapped)]
+colnames(apgi_prot) <- as.character(mapped)
+cat("APGI proteins (gene symbols):", ncol(apgi_prot), "\n")
+cat("APGI tumor samples:", nrow(apgi_prot), "\n")
+```
+
+---
+
+## 2. Tong Tumor Detection Rates
+
+For each leading edge protein, the percentage of tumor samples where the protein was quantified (non-NA).
+
+```{r tong_detection}
+tong_detection <- sapply(leading_edge, function(p) {
+  idx <- which(symbols == p)
+  if (length(idx) == 0) return(NA)
+  vals <- as.numeric(tong_raw[idx, t_cols])
+  round(sum(!is.na(vals)) / length(vals) * 100, 1)
+})
+
+cat("Leading edge proteins in Tong tumor samples:\n")
+cat("  Not found:", sum(is.na(tong_detection)), "/", length(leading_edge), "\n")
+cat("  Detected in >0%:", sum(tong_detection > 0, na.rm = TRUE), "\n")
+cat("  Detected in >=60%:", sum(tong_detection >= 60, na.rm = TRUE), "\n")
+cat("  Detected in >=70%:", sum(tong_detection >= 70, na.rm = TRUE), "\n")
+cat("  Detected in >=80%:", sum(tong_detection >= 80, na.rm = TRUE), "\n")
+cat("  Detected in >=90%:", sum(tong_detection >= 90, na.rm = TRUE), "\n")
+
+# Distribution histogram
+tong_df <- data.frame(DetectionRate = tong_detection[!is.na(tong_detection)])
+ggplot(tong_df, aes(x = DetectionRate)) +
+  geom_histogram(binwidth = 5, fill = "steelblue", color = "white") +
+  geom_vline(xintercept = c(60, 70, 80), linetype = "dashed", 
+             color = c("orange", "red", "darkred"), alpha = 0.7) +
+  labs(title = "Tong: Leading Edge Protein Detection Rates",
+       subtitle = "Dashed lines = 60%, 70%, 80% thresholds",
+       x = "% of Tumor Samples with Protein Detected",
+       y = "Number of Proteins")
+```
+
+---
+
+## 3. APGI Tumor Detection Rates
+
+```{r apgi_detection}
+apgi_detection <- sapply(leading_edge, function(p) {
+  if (!p %in% colnames(apgi_prot)) return(NA)
+  vals <- apgi_prot[[p]]
+  round(sum(!is.na(vals)) / length(vals) * 100, 1)
+})
+
+cat("Leading edge proteins in APGI tumor samples:\n")
+cat("  Not found:", sum(is.na(apgi_detection)), "/", length(leading_edge), "\n")
+cat("  Detected in >0%:", sum(apgi_detection > 0, na.rm = TRUE), "\n")
+cat("  Detected in >=60%:", sum(apgi_detection >= 60, na.rm = TRUE), "\n")
+cat("  Detected in >=70%:", sum(apgi_detection >= 70, na.rm = TRUE), "\n")
+cat("  Detected in >=80%:", sum(apgi_detection >= 80, na.rm = TRUE), "\n")
+cat("  Detected in >=90%:", sum(apgi_detection >= 90, na.rm = TRUE), "\n")
+
+# Distribution histogram
+apgi_df <- data.frame(DetectionRate = apgi_detection[!is.na(apgi_detection)])
+ggplot(apgi_df, aes(x = DetectionRate)) +
+  geom_histogram(binwidth = 5, fill = "coral", color = "white") +
+  geom_vline(xintercept = c(60, 70, 80), linetype = "dashed", 
+             color = c("orange", "red", "darkred"), alpha = 0.7) +
+  labs(title = "APGI: Leading Edge Protein Detection Rates",
+       subtitle = "Dashed lines = 60%, 70%, 80% thresholds",
+       x = "% of Tumor Samples with Protein Detected",
+       y = "Number of Proteins")
+```
+
+---
+
+## 4. Combined Threshold Summary
+
+```{r summary_table}
+thresholds <- c(0, 50, 60, 70, 80, 90, 100)
+tong_counts <- sapply(thresholds, function(t) sum(tong_detection >= t, na.rm = TRUE))
+apgi_counts <- sapply(thresholds, function(t) sum(apgi_detection >= t, na.rm = TRUE))
+
+summary_df <- data.frame(
+  Detection_Threshold = paste0(">=", thresholds, "%"),
+  Tong = tong_counts,
+  APGI = apgi_counts
+)
+knitr::kable(summary_df, 
+             caption = "Number of Leading Edge Proteins Above Each Detection Threshold")
+```
+
+---
+
+## 5. 18-Protein Signature Detection
+
+```{r sig_detection}
+sig_proteins <- sig$Protein
+
+sig_results <- data.frame(Protein = sig_proteins)
+
+# Tong
+sig_results$Tong_Detected <- sapply(sig_proteins, function(p) {
+  p %in% symbols
+})
+sig_results$Tong_Pct <- sapply(sig_proteins, function(p) {
+  idx <- which(symbols == p)
+  if (length(idx) == 0) return(NA)
+  vals <- as.numeric(tong_raw[idx, t_cols])
+  round(sum(!is.na(vals)) / length(vals) * 100, 1)
+})
+
+# APGI
+sig_results$APGI_Detected <- sapply(sig_proteins, function(p) {
+  p %in% colnames(apgi_prot)
+})
+sig_results$APGI_Pct <- sapply(sig_proteins, function(p) {
+  if (!p %in% colnames(apgi_prot)) return(NA)
+  vals <- apgi_prot[[p]]
+  round(sum(!is.na(vals)) / length(vals) * 100, 1)
+})
+
+knitr::kable(sig_results, caption = "18-Protein Signature: Detection Rates in Validation Cohorts",
+             digits = 1)
+```
+
+---
+
+## 6. Summary
+
+```{r summary}
+cat("========================================================\n")
+cat("LEADING EDGE PROTEIN COVERAGE IN VALIDATION COHORTS\n")
+cat("========================================================\n\n")
+cat("Total leading edge proteins:", length(leading_edge), "\n\n")
+
+cat("Tong (DIA-MS, 226 tumors):\n")
+cat("  Found in dataset:", sum(!is.na(tong_detection)), "/", length(leading_edge), "\n")
+cat("  >=80% tumor detection:", sum(tong_detection >= 80, na.rm = TRUE), "\n")
+cat("  >=70% tumor detection:", sum(tong_detection >= 70, na.rm = TRUE), "\n")
+cat("  >=60% tumor detection:", sum(tong_detection >= 60, na.rm = TRUE), "\n\n")
+
+cat("APGI (DIA-MS, 176 tumors):\n")
+cat("  Found in dataset:", sum(!is.na(apgi_detection)), "/", length(leading_edge), "\n")
+cat("  >=80% tumor detection:", sum(apgi_detection >= 80, na.rm = TRUE), "\n")
+cat("  >=70% tumor detection:", sum(apgi_detection >= 70, na.rm = TRUE), "\n")
+cat("  >=60% tumor detection:", sum(apgi_detection >= 60, na.rm = TRUE), "\n\n")
+
+cat("18-Protein Signature:\n")
+cat("  Tong >=80%:", sum(sig_results$Tong_Pct >= 80, na.rm = TRUE), "/ 18\n")
+cat("  APGI >=80%:", sum(sig_results$APGI_Pct >= 80, na.rm = TRUE), "/ 18\n")
+cat("========================================================\n")
+```
