@@ -1,0 +1,212 @@
+---
+title: "Train MOFA model on CPTAC-PDAC RNA and proteome data"
+output: github_document
+---
+
+
+## GitHub Documents
+
+This is an R Markdown format used for publishing markdown documents to GitHub. When you click the **Knit** button all R code chunks are run and a markdown file (.md) suitable for publishing to GitHub is generated.
+
+## Setup
+```{r setup_mofa}
+knitr::opts_chunk$set(echo = TRUE)
+# Load MOFA2 library
+library(MOFA2)
+```
+
+## Load Data
+```{r load_data}
+# load data
+# both rna and proteomcs data are normalized, filtered, and scaled
+# samples are in columns, features in rows
+
+# load rna data
+rna_df <- read.csv("Data/MOFA_input/transcriptome_top5k_hvgs_scaled_tumor.csv", row.names = 1)
+print(dim(rna_df))
+
+# Detailed RNA diagnostics
+cat("\n=== RNA Data Diagnostics ===\n")
+rna_mat <- as.matrix(rna_df)
+cat("Missing values:", sum(is.na(rna_mat)), "\n")
+cat("Infinite values:", sum(is.infinite(rna_mat)), "\n")
+cat("Range:", range(rna_mat, na.rm = TRUE), "\n")
+cat("Mean:", mean(rna_mat, na.rm = TRUE), "\n")
+cat("SD:", sd(rna_mat, na.rm = TRUE), "\n")
+cat("Values > 100:", sum(abs(rna_mat) > 100, na.rm = TRUE), "\n")
+cat("Values > 1000:", sum(abs(rna_mat) > 1000, na.rm = TRUE), "\n")
+
+# load proteome data
+prot_df <- read.csv("Data/MOFA_input/proteome_top5k_hvgs_scaled_tumor.csv", row.names = 1)
+print(dim(prot_df))
+
+# Detailed proteome diagnostics
+cat("\n=== Proteome Data Diagnostics ===\n")
+prot_mat <- as.matrix(prot_df)
+cat("Missing values:", sum(is.na(prot_mat)), "\n")
+cat("Missing %:", round(sum(is.na(prot_mat)) / length(prot_mat) * 100, 2), "%\n")
+cat("Infinite values:", sum(is.infinite(prot_mat)), "\n")
+cat("Range (non-NA):", range(prot_mat, na.rm = TRUE), "\n")
+cat("Mean (non-NA):", mean(prot_mat, na.rm = TRUE), "\n")
+cat("SD (non-NA):", sd(prot_mat, na.rm = TRUE), "\n")
+cat("Values > 100:", sum(abs(prot_mat) > 100, na.rm = TRUE), "\n")
+cat("Values > 1000:", sum(abs(prot_mat) > 1000, na.rm = TRUE), "\n")
+
+# Check samples with extreme missing data
+missing_per_sample <- colSums(is.na(prot_mat)) / nrow(prot_mat) * 100
+cat("\nSamples with >50% missing proteome data:", sum(missing_per_sample > 50), "\n")
+if(sum(missing_per_sample > 50) > 0) {
+  cat("Sample IDs with >50% missing:\n")
+  print(names(missing_per_sample)[missing_per_sample > 50])
+}
+
+# Check features with extreme missing data
+missing_per_feature <- rowSums(is.na(prot_mat)) / ncol(prot_mat) * 100
+cat("\nFeatures with >50% missing proteome data:", sum(missing_per_feature > 50), "\n")
+
+# column names (sample IDs) should match between the two data frames
+all(colnames(rna_df) == colnames(prot_df))
+# match column order
+prot_df <- prot_df[, colnames(rna_df)]
+all(colnames(rna_df) == colnames(prot_df))
+
+# Replace any infinite values with NA
+rna_df[is.infinite(as.matrix(rna_df))] <- NA
+prot_df[is.infinite(as.matrix(prot_df))] <- NA
+
+cat("\n=== After cleaning ===\n")
+cat("RNA NA count:", sum(is.na(rna_df)), "\n")
+cat("Proteome NA count:", sum(is.na(prot_df)), "\n")
+```
+
+## Create MOFA object
+```{r create_mofa}
+
+mofa_input <- list(RNA = as.matrix(as.data.frame(rna_df)),Protein = as.matrix(as.data.frame(prot_df)))
+
+
+# Create the MOFA object
+MOFAobject <- create_mofa(mofa_input)
+
+# Visualize the overlap of samples across the two omics
+plot_data_overview(MOFAobject)
+```
+
+## Define data options
+```{r data_options}
+# Define data options
+data_opts <- get_default_data_options(MOFAobject)
+data_opts$scale_views <- FALSE  # Data already scaled, don't scale again
+data_opts$center_groups <- TRUE   # Let MOFA center - important for convergence
+head(data_opts)
+```
+
+## Define model options
+```{r model_options}
+# Define model options
+model_opts <- get_default_model_options(MOFAobject)
+model_opts$num_factors <- 10  # Start with fewer factors for stability
+model_opts$likelihoods <- c("gaussian", "gaussian")  # Set likelihoods for both views
+model_opts$spikeslab_weights <- TRUE  # Use spike-and-slab prior for sparsity
+model_opts$ard_factors <- TRUE  # Automatic relevance determination
+model_opts$ard_weights <- TRUE  # ARD on weights too
+```
+
+## Define training options
+```{r training_options}
+training_opts <- get_default_training_options(MOFAobject)
+training_opts$maxiter <- 2000  # Increase iterations
+training_opts$drop_factor_threshold <- 0.02  # Drop weak factors (helps stability)
+training_opts$convergence_mode <- "slow"  # Slow convergence for stability
+training_opts$seed <- 42  # Set random seed for reproducibility
+training_opts$startELBO <- 1    # Start ELBO tracking from iteration 1
+training_opts$freqELBO <- 1     # Calculate ELBO every iteration
+training_opts$verbose <- TRUE   # Show training progress
+head(training_opts)
+```
+
+## Prepare MOFA object for training
+```{r prepare_mofa}
+# Prepare the MOFA object for training
+MOFAobject <- prepare_mofa(MOFAobject,
+                            data_options = data_opts,
+                            model_options = model_opts,
+                            training_options = training_opts)
+```
+
+## Train model
+```{r train_model}
+# Train the MOFA model
+# Using use_basilisk = TRUE for stable training (downloads environment first time only)
+out_file <- "Results/MOFA_models/mofa_cptac_pdac_rna_proteome_model.hdf5"
+MOFAmodel <- run_mofa(object = MOFAobject,
+                      outfile = out_file,
+                      use_basilisk = TRUE,
+                      save_data = TRUE)
+```
+
+## Check model convergence
+```{r check_convergence}
+# Detailed ELBO diagnostics
+elbo_vals <- MOFAmodel@training_stats$elbo
+valid_elbo <- !is.nan(elbo_vals) & !is.na(elbo_vals) & !is.infinite(elbo_vals)
+
+# Check convergence from training stats
+converged <- MOFAmodel@training_stats$converged
+if(is.null(converged) || !is.logical(converged)) {
+  # Alternative: check if model stopped before maxiter
+  converged <- length(elbo_vals) < 2000 && sum(valid_elbo) > 100
+}
+
+cat("Model converged:", converged, "\n")
+cat("Total iterations:", length(elbo_vals), "\n")
+cat("Final iteration:", max(which(valid_elbo)), "\n")
+
+cat("Valid ELBO values:", sum(valid_elbo), "/", length(elbo_vals), "\n")
+cat("First 10 ELBO values:\n")
+print(head(elbo_vals, 10))
+cat("Last 10 ELBO values:\n")
+print(tail(elbo_vals, 10))
+
+# Find where NaN values start
+if(any(!valid_elbo)) {
+  first_nan <- which(!valid_elbo)[1]
+  cat("\nFirst NaN at iteration:", first_nan, "\n")
+  cat("Last valid ELBO (iteration", first_nan - 1, "):", elbo_vals[first_nan - 1], "\n")
+}
+
+# Plot ELBO convergence (valid values only)
+if(sum(valid_elbo) > 1) {
+  elbo_df <- data.frame(iteration = which(valid_elbo),
+                        elbo = elbo_vals[valid_elbo])
+  
+  library(ggplot2)
+  p <- ggplot(elbo_df, aes(x = iteration, y = elbo)) +
+    geom_line(color = "blue", size = 1) +
+    labs(title = "MOFA Model Convergence (RNA + Proteome)",
+         subtitle = paste("Valid iterations:", nrow(elbo_df), "/ Total:", length(elbo_vals)),
+         x = "Iteration", y = "ELBO") +
+    theme_bw()
+  print(p)
+  
+  # Check ELBO change in last valid iterations
+  last_valid <- tail(elbo_df$elbo, min(50, nrow(elbo_df)))
+  if(length(last_valid) > 1) {
+    elbo_change <- (last_valid[length(last_valid)] - last_valid[1]) / abs(last_valid[1]) * 100
+    cat("\nELBO change in last", length(last_valid), "valid iterations:", round(elbo_change, 4), "%\n")
+  }
+  
+  # Assessment
+  if(sum(!valid_elbo) > length(elbo_vals) * 0.5) {
+    cat("\nWARNING: >50% of iterations have NaN ELBO - model training failed!\n")
+    cat("Recommendation: Check input data for extreme values, missing data patterns, or try different scaling.\n")
+  } else if(any(!valid_elbo)) {
+    cat("\nWARNING: Some NaN values in ELBO - model became unstable.\n")
+    cat("Recommendation: Model may still be usable, but check factor quality carefully.\n")
+  } else {
+    cat("\nGood: All ELBO values are valid.\n")
+  }
+} else {
+  cat("ERROR: Training failed - no valid ELBO values\n")
+}
+```

@@ -38,21 +38,21 @@ The purpose of this analysis is to find a molecular signature that is an indepen
 
 | Step | Script | Description |
 |------|--------|-------------|
-| 1 | `exploratory.ipynb` | Merge metadata, subset samples/genes to match LinkedOmics |
-| 2 | `tpm_normalization.ipynb` | TPM normalize raw RNA counts |
-| 3 | `runPURIST.r` | PurIST basal/classical subtype classification |
-| 4 | `mofa_prep_input.ipynb` | Prepare RNAseq & proteomics matrices for MOFA |
-| 5 | `mofa_train_model.rmd` | Train MOFA model on RNA + protein |
-| 6 | `mofa_train_model_v2.rmd` | Train MOFA model on RNA + protein + mutations |
-| 7 | `mofa_downstream_exploratory.rmd` | Explore MOFA factors and clinical correlations |
-| 8 | `survival_analysis.rmd` | Survival analysis using MOFA factors |
-| 9 | `factor2_under_the_hood.rmd` | Deep dive into Factor 2 genes/proteins |
-| 10 | `gsea_mofa_factor2.rmd` | Gene Set Enrichment Analysis using MOFA Factor 2 |
-| 11 | `find_discriminatory_signature.rmd` | Survival signature discovery (Lasso-Cox) |
-| 12 | `apgi_prep_data.rmd` | Prepare APGI protein matrix for validation |
-| 13 | `validate_signature_apgi.rmd` | External validation of 18-protein signature in APGI cohort |
-| 14 | `01_prepare_tong_validation_data.Rmd` | Prepare Tong et al. proteomics data for validation |
-| 15 | `02_validation_survival_analysis.Rmd` | External validation of 18-protein signature in Tong cohort |
+| 1 | `01_exploratory.ipynb` | Merge metadata, subset samples/genes to match LinkedOmics |
+| 2 | `02_tpm_normalization.ipynb` | TPM normalize raw RNA counts |
+| 3 | `03_runPURIST.r` | PurIST basal/classical subtype classification |
+| 4 | `04_mofa_prep_input.ipynb` | Prepare RNAseq & proteomics matrices for MOFA |
+| 5 | `05_mofa_train_model.Rmd` | Train MOFA model on RNA + protein |
+| 6 | `06_mofa_train_model_v2.rmd` | Train MOFA model on RNA + protein + mutations |
+| 7 | `07_mofa_downstream_exploratory.rmd` | Explore MOFA factors and clinical correlations |
+| 8 | `08_survival_analysis.rmd` | Survival analysis using MOFA factors |
+| 9 | `09_factor2_under_the_hood.rmd` | Deep dive into Factor 2 genes/proteins |
+| 10 | `10_gsea_mofa_factor2.rmd` | Gene Set Enrichment Analysis using MOFA Factor 2 |
+| 11 | `11_find_discriminatory_signature.rmd` | Survival signature discovery (Lasso-Cox) |
+| 12 | `12_apgi_prep_data.rmd` | Prepare APGI protein matrix for validation |
+| 13 | `13_validate_signature_apgi.rmd` | External validation of 18-protein signature in APGI cohort |
+| 14 | `14_prepare_tong_validation_data.Rmd` | Prepare Tong et al. proteomics data for validation |
+| 15 | `15_tong_validation_survival_analysis.Rmd` | External validation of 18-protein signature in Tong cohort |
 
 > **Note:** Mutation data explained <0.5% of variance, so MOFAmodel_1 (RNA + protein only) was used for downstream analysis.
 
