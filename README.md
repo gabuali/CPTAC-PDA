@@ -19,7 +19,6 @@ The purpose of this analysis is to find a molecular signature that is an indepen
 │   ├── MOFA_input/           # Prepared matrices for MOFA
 │   ├── MSigDB_genesets/      # Hallmark gene set collection
 │   ├── RNA_count_tables/     # Raw and normalized RNA counts
-│   ├── RNAseq_raw/           # GDC raw downloads
 │   └── Tong-PDA/             # Tong et al. validation data
 ├── Results/
 │   ├── MOFA_models/          # Trained MOFA HDF5 models
