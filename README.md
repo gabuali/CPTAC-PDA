@@ -23,8 +23,8 @@ The purpose of this analysis is to find a molecular signature that is an indepen
 ├── Results/
 │   ├── MOFA_models/          # Trained MOFA HDF5 models
 │   ├── PurIST_Classification_Results.csv  # Basal/Classical subtype calls
-│   ├── 01_prepare_tong_validation_data.html
-│   ├── 02_validation_survival_analysis.html
+│   ├── 15_prepare_tong_validation_data.html
+│   ├── 16_tong_validation_survival_analysis.html
 │   ├── factor2_under_the_hood.html
 │   ├── gsea_mofa_factor2.html
 │   ├── mofa_downstream_exploratory.html
@@ -64,10 +64,11 @@ The purpose of this analysis is to find a molecular signature that is an indepen
 | [Survival Analysis](https://gabuali.github.io/CPTAC-PDA/Results/survival_analysis.html) | Cox regression and Kaplan-Meier curves |
 | [Factor 2 Deep Dive](https://gabuali.github.io/CPTAC-PDA/Results/factor2_under_the_hood.html) | Top genes/proteins driving Factor 2 |
 | [GSEA Factor 2](https://gabuali.github.io/CPTAC-PDA/Results/gsea_mofa_factor2.html) | Hallmark pathway enrichment analysis |
-| [Survival Signature Discovery](https://gabuali.github.io/CPTAC-PDA/Results/find_discriminatory_signature.html) | 18-Protein Lasso Signature Analysis |
-| [APGI Signature Validation](https://gabuali.github.io/CPTAC-PDA/Results/validate_signature_apgi.html) | External validation in independent APGI cohort |
-| [Tong Data Preparation](https://gabuali.github.io/CPTAC-PDA/Results/01_prepare_tong_validation_data.html) | Prepare Tong et al. proteomics data for validation |
-| [Tong Signature Validation](https://gabuali.github.io/CPTAC-PDA/Results/02_validation_survival_analysis.html) | External validation of 18-protein signature in Tong cohort |
+| [Survival Signature Discovery](https://gabuali.github.io/CPTAC-PDA/Results/12_find_discriminatory_signature.html) | 18-Protein Lasso Signature Analysis |
+| [Leading Edge Coverage Check](https://gabuali.github.io/CPTAC-PDA/Results/11_check_leading_edge_coverage.html) | Leading edge protein detection across cohorts |
+| [APGI Signature Validation](https://gabuali.github.io/CPTAC-PDA/Results/14_validate_signature_apgi.html) | External validation in independent APGI cohort |
+| [Tong Data Preparation](https://gabuali.github.io/CPTAC-PDA/Results/15_prepare_tong_validation_data.html) | Prepare Tong et al. proteomics data for validation |
+| [Tong Signature Validation](https://gabuali.github.io/CPTAC-PDA/Results/16_tong_validation_survival_analysis.html) | External validation of 18-protein signature in Tong cohort |
 
 ---
 
