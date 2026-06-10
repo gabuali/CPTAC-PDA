@@ -184,9 +184,37 @@ knitr::kable(sig_results, caption = "18-Protein Signature: Detection Rates in Va
 
 ---
 
-## 6. Summary
+## 6. Export Leading Edge Proteins with High Detection
 
-```{r summary}
+Export the list of leading edge proteins detected in >=80% of tumor samples in both validation cohorts (Tong AND APGI). These can be prioritized for Lasso-Cox feature selection.
+
+```{r export}
+# Proteins detected in >=80% of tumors in BOTH cohorts
+tong_high <- leading_edge[which(tong_detection >= 80)]
+apgi_high <- leading_edge[which(apgi_detection >= 80)]
+both_high <- intersect(tong_high, apgi_high)
+
+cat("Leading edge proteins with >=80% detection:
+")
+cat("  Tong:", length(tong_high), "
+")
+cat("  APGI:", length(apgi_high), "
+")
+cat("  Both cohorts:", length(both_high), "
+")
+
+# Save
+write.table(both_high, 
+            file = here("Results", "LeadingEdge_Detected_ge80pct_BothCohorts.txt"),
+            quote = FALSE, row.names = FALSE, col.names = FALSE)
+cat("
+Saved to Results/LeadingEdge_Detected_ge80pct_BothCohorts.txt
+")
+```
+
+---
+
+## 7. Summary
 cat("========================================================\n")
 cat("LEADING EDGE PROTEIN COVERAGE IN VALIDATION COHORTS\n")
 cat("========================================================\n\n")

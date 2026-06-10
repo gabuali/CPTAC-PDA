@@ -1957,44 +1957,63 @@ Cohorts</caption>
 </table>
 <hr />
 </div>
+<div id="export-leading-edge-proteins-with-high-detection" class="section level2">
+<h2>6. Export Leading Edge Proteins with High Detection</h2>
+<p>Export the list of leading edge proteins detected in &gt;=80% of
+tumor samples in both validation cohorts (Tong AND APGI). These can be
+prioritized for Lasso-Cox feature selection.</p>
+<pre class="r"><code># Proteins detected in &gt;=80% of tumors in BOTH cohorts
+tong_high &lt;- leading_edge[which(tong_detection &gt;= 80)]
+apgi_high &lt;- leading_edge[which(apgi_detection &gt;= 80)]
+both_high &lt;- intersect(tong_high, apgi_high)
+
+cat(&quot;Leading edge proteins with &gt;=80% detection:
+&quot;)</code></pre>
+<pre><code>## Leading edge proteins with &gt;=80% detection:</code></pre>
+<pre class="r"><code>cat(&quot;  Tong:&quot;, length(tong_high), &quot;
+&quot;)</code></pre>
+<pre><code>##   Tong: 231</code></pre>
+<pre class="r"><code>cat(&quot;  APGI:&quot;, length(apgi_high), &quot;
+&quot;)</code></pre>
+<pre><code>##   APGI: 217</code></pre>
+<pre class="r"><code>cat(&quot;  Both cohorts:&quot;, length(both_high), &quot;
+&quot;)</code></pre>
+<pre><code>##   Both cohorts: 192</code></pre>
+<pre class="r"><code># Save
+write.table(both_high, 
+            file = here(&quot;Results&quot;, &quot;LeadingEdge_Detected_ge80pct_BothCohorts.txt&quot;),
+            quote = FALSE, row.names = FALSE, col.names = FALSE)
+cat(&quot;
+Saved to Results/LeadingEdge_Detected_ge80pct_BothCohorts.txt
+&quot;)</code></pre>
+<pre><code>## 
+## Saved to Results/LeadingEdge_Detected_ge80pct_BothCohorts.txt</code></pre>
+<hr />
+</div>
 <div id="summary" class="section level2">
-<h2>6. Summary</h2>
-<pre class="r"><code>cat(&quot;========================================================\n&quot;)</code></pre>
-<pre><code>## ========================================================</code></pre>
-<pre class="r"><code>cat(&quot;LEADING EDGE PROTEIN COVERAGE IN VALIDATION COHORTS\n&quot;)</code></pre>
-<pre><code>## LEADING EDGE PROTEIN COVERAGE IN VALIDATION COHORTS</code></pre>
-<pre class="r"><code>cat(&quot;========================================================\n\n&quot;)</code></pre>
-<pre><code>## ========================================================</code></pre>
-<pre class="r"><code>cat(&quot;Total leading edge proteins:&quot;, length(leading_edge), &quot;\n\n&quot;)</code></pre>
-<pre><code>## Total leading edge proteins: 361</code></pre>
-<pre class="r"><code>cat(&quot;Tong (DIA-MS, 226 tumors):\n&quot;)</code></pre>
-<pre><code>## Tong (DIA-MS, 226 tumors):</code></pre>
-<pre class="r"><code>cat(&quot;  Found in dataset:&quot;, sum(!is.na(tong_detection)), &quot;/&quot;, length(leading_edge), &quot;\n&quot;)</code></pre>
-<pre><code>##   Found in dataset: 320 / 361</code></pre>
-<pre class="r"><code>cat(&quot;  &gt;=80% tumor detection:&quot;, sum(tong_detection &gt;= 80, na.rm = TRUE), &quot;\n&quot;)</code></pre>
-<pre><code>##   &gt;=80% tumor detection: 231</code></pre>
-<pre class="r"><code>cat(&quot;  &gt;=70% tumor detection:&quot;, sum(tong_detection &gt;= 70, na.rm = TRUE), &quot;\n&quot;)</code></pre>
-<pre><code>##   &gt;=70% tumor detection: 251</code></pre>
-<pre class="r"><code>cat(&quot;  &gt;=60% tumor detection:&quot;, sum(tong_detection &gt;= 60, na.rm = TRUE), &quot;\n\n&quot;)</code></pre>
-<pre><code>##   &gt;=60% tumor detection: 263</code></pre>
-<pre class="r"><code>cat(&quot;APGI (DIA-MS, 176 tumors):\n&quot;)</code></pre>
-<pre><code>## APGI (DIA-MS, 176 tumors):</code></pre>
-<pre class="r"><code>cat(&quot;  Found in dataset:&quot;, sum(!is.na(apgi_detection)), &quot;/&quot;, length(leading_edge), &quot;\n&quot;)</code></pre>
-<pre><code>##   Found in dataset: 315 / 361</code></pre>
-<pre class="r"><code>cat(&quot;  &gt;=80% tumor detection:&quot;, sum(apgi_detection &gt;= 80, na.rm = TRUE), &quot;\n&quot;)</code></pre>
-<pre><code>##   &gt;=80% tumor detection: 217</code></pre>
-<pre class="r"><code>cat(&quot;  &gt;=70% tumor detection:&quot;, sum(apgi_detection &gt;= 70, na.rm = TRUE), &quot;\n&quot;)</code></pre>
-<pre><code>##   &gt;=70% tumor detection: 241</code></pre>
-<pre class="r"><code>cat(&quot;  &gt;=60% tumor detection:&quot;, sum(apgi_detection &gt;= 60, na.rm = TRUE), &quot;\n\n&quot;)</code></pre>
-<pre><code>##   &gt;=60% tumor detection: 258</code></pre>
-<pre class="r"><code>cat(&quot;18-Protein Signature:\n&quot;)</code></pre>
-<pre><code>## 18-Protein Signature:</code></pre>
-<pre class="r"><code>cat(&quot;  Tong &gt;=80%:&quot;, sum(sig_results$Tong_Pct &gt;= 80, na.rm = TRUE), &quot;/ 18\n&quot;)</code></pre>
-<pre><code>##   Tong &gt;=80%: 11 / 18</code></pre>
-<pre class="r"><code>cat(&quot;  APGI &gt;=80%:&quot;, sum(sig_results$APGI_Pct &gt;= 80, na.rm = TRUE), &quot;/ 18\n&quot;)</code></pre>
-<pre><code>##   APGI &gt;=80%: 9 / 18</code></pre>
-<pre class="r"><code>cat(&quot;========================================================\n&quot;)</code></pre>
-<pre><code>## ========================================================</code></pre>
+<h2>7. Summary</h2>
+<p>cat(“========================================================”)
+cat(“LEADING EDGE PROTEIN COVERAGE IN VALIDATION COHORTS”)
+cat(“========================================================”)
+cat(“Total leading edge proteins:”, length(leading_edge), “”)</p>
+<p>cat(“Tong (DIA-MS, 226 tumors):”) cat(” Found in dataset:“,
+sum(!is.na(tong_detection)),”/“, length(leading_edge),”“) cat(” &gt;=80%
+tumor detection:“, sum(tong_detection &gt;= 80, na.rm = TRUE),”“) cat(”
+&gt;=70% tumor detection:“, sum(tong_detection &gt;= 70, na.rm =
+TRUE),”“) cat(” &gt;=60% tumor detection:“, sum(tong_detection &gt;= 60,
+na.rm = TRUE),”“)</p>
+<p>cat(“APGI (DIA-MS, 176 tumors):”) cat(” Found in dataset:“,
+sum(!is.na(apgi_detection)),”/“, length(leading_edge),”“) cat(” &gt;=80%
+tumor detection:“, sum(apgi_detection &gt;= 80, na.rm = TRUE),”“) cat(”
+&gt;=70% tumor detection:“, sum(apgi_detection &gt;= 70, na.rm =
+TRUE),”“) cat(” &gt;=60% tumor detection:“, sum(apgi_detection &gt;= 60,
+na.rm = TRUE),”“)</p>
+<p>cat(“18-Protein Signature:”) cat(” Tong &gt;=80%:“,
+sum(sig_results<span class="math inline">\(Tong_Pct &gt;= 80, na.rm =
+TRUE), &quot;/ 18\n&quot;)
+cat(&quot;  APGI &gt;=80%:&quot;, sum(sig_results\)</span>APGI_Pct &gt;=
+80, na.rm = TRUE),”/ 18“)
+cat(”========================================================“) ```</p>
 </div>
 
 

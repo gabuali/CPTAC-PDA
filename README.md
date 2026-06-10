@@ -19,16 +19,17 @@ The purpose of this analysis is to find a molecular signature that is an indepen
 │   ├── MOFA_input/           # Prepared matrices for MOFA
 │   ├── RNA_count_tables/     # Raw and normalized RNA counts
 │   ├── RNAseq_raw/           # GDC raw downloads
-|   ├── Tong-PDA/             # Tong et al. validation data
 ├── Results/
 │   ├── MOFA_models/          # Trained MOFA HDF5 models
 │   ├── PurIST_Classification_Results.csv  # Basal/Classical subtype calls
+│   ├── 11_check_leading_edge_coverage.html
 │   ├── 15_prepare_tong_validation_data.html
 │   ├── 16_tong_validation_survival_analysis.html
 │   ├── factor2_under_the_hood.html
 │   ├── gsea_mofa_factor2.html
 │   ├── mofa_downstream_exploratory.html
 │   └── survival_analysis.html
+├── Tong-PDA/                # Tong et al. validation data
 └── src/                      # Analysis scripts
 ```
 
@@ -48,11 +49,12 @@ The purpose of this analysis is to find a molecular signature that is an indepen
 | 8 | `08_survival_analysis.rmd` | Survival analysis using MOFA factors |
 | 9 | `09_factor2_under_the_hood.rmd` | Deep dive into Factor 2 genes/proteins |
 | 10 | `10_gsea_mofa_factor2.rmd` | Gene Set Enrichment Analysis using MOFA Factor 2 |
-| 11 | `11_find_discriminatory_signature.rmd` | Survival signature discovery (Lasso-Cox) |
-| 12 | `12_apgi_prep_data.rmd` | Prepare APGI protein matrix for validation |
-| 13 | `13_validate_signature_apgi.rmd` | External validation of 18-protein signature in APGI cohort |
-| 14 | `14_prepare_tong_validation_data.Rmd` | Prepare Tong et al. proteomics data for validation |
-| 15 | `15_tong_validation_survival_analysis.Rmd` | External validation of 18-protein signature in Tong cohort |
+| 11 | `11_check_leading_edge_coverage.Rmd` | Check leading edge protein detection in validation cohorts |
+| 12 | `12_find_discriminatory_signature.rmd` | Survival signature discovery (Lasso-Cox) |
+| 13 | `13_apgi_prep_data.rmd` | Prepare APGI protein matrix for validation |
+| 14 | `14_validate_signature_apgi.rmd` | External validation of 18-protein signature in APGI cohort |
+| 15 | `15_prepare_tong_validation_data.Rmd` | Prepare Tong et al. proteomics data for validation |
+| 16 | `16_tong_validation_survival_analysis.Rmd` | External validation of 18-protein signature in Tong cohort |
 
 > **Note:** Mutation data explained <0.5% of variance, so MOFAmodel_1 (RNA + protein only) was used for downstream analysis.
 
