@@ -11,7 +11,7 @@
 
 <meta name="author" content="CPTAC-PDA Analysis" />
 
-<meta name="date" content="2026-06-10" />
+<meta name="date" content="2026-06-11" />
 
 <title>Coverage of MOFA Factor 2 Leading Edge Proteins in Validation Cohorts</title>
 
@@ -1590,19 +1590,19 @@ Proteins in Validation Cohorts</h1>
 <h3 class="subtitle">Per-protein detection rates of 361 leading edge
 proteins in APGI and Tong tumor samples</h3>
 <h4 class="author">CPTAC-PDA Analysis</h4>
-<h4 class="date">2026-06-10</h4>
+<h4 class="date">2026-06-11</h4>
 
 </div>
 
 
 <div id="overview" class="section level2">
 <h2>Overview</h2>
-<p>The 18-protein Lasso-Cox signature was derived from a pool of 361
-leading edge proteins identified by GSEA of MOFA Factor 2 protein
-loadings. Before building the Lasso model, we assess how many of these
-361 proteins are reliably detected in the independent validation cohorts
-(APGI and Tong). This informs feature selection — proteins with low
-detection rates in external data will have limited generalizability.</p>
+<p>The Lasso-Cox signatures were derived from a pool of 361 leading edge
+proteins identified by GSEA of MOFA Factor 2 protein loadings. Before
+building the Lasso model, we assess how many of these 361 proteins are
+reliably detected in the independent validation cohorts (APGI and Tong).
+This informs feature selection — proteins with low detection rates in
+external data will have limited generalizability.</p>
 <p><strong>Key question:</strong> What fraction of leading edge proteins
 are detected in ≥60%, ≥70%, ≥80% of tumor samples in each validation
 cohort?</p>
@@ -1615,17 +1615,20 @@ leading_edge &lt;- scan(here(&quot;Results&quot;, &quot;MOFA_Factor2_Protein_Lea
                      what = character())
 cat(&quot;Leading edge proteins:&quot;, length(leading_edge), &quot;\n&quot;)</code></pre>
 <pre><code>## Leading edge proteins: 361</code></pre>
-<pre class="r"><code># 18-protein Lasso-Cox signature
-sig &lt;- read.csv(here(&quot;Results&quot;, &quot;MOFA_Factor2_Protein_LassoSignature_18Proteins.csv&quot;))
-cat(&quot;Signature proteins:&quot;, nrow(sig), &quot;\n&quot;)</code></pre>
-<pre><code>## Signature proteins: 18</code></pre>
+<pre class="r"><code># Lasso-Cox signatures
+sig &lt;- read.csv(here(&quot;Results&quot;, &quot;MOFA_Factor2_LassoSignature_Tong_ge80pct_Tumors.csv&quot;))
+cat(&quot;Tong &gt;=80% signature:&quot;, nrow(sig), &quot;proteins\n&quot;)</code></pre>
+<pre><code>## Tong &gt;=80% signature: 20 proteins</code></pre>
+<pre class="r"><code>sig2 &lt;- read.csv(here(&quot;Results&quot;, &quot;MOFA_Factor2_LassoSignature_Both_Cohorts_ge80pct.csv&quot;))
+cat(&quot;Both &gt;=80% signature:&quot;, nrow(sig2), &quot;proteins\n&quot;)</code></pre>
+<pre><code>## Both &gt;=80% signature: 17 proteins</code></pre>
 <pre class="r"><code># CPTAC proteome (reference - TMT discovery cohort)
-cptac_prot &lt;- read.csv(here(&quot;MOFA_input&quot;, &quot;proteome_top5k_hvgs_scaled_tumor.csv&quot;), 
+cptac_prot &lt;- read.csv(here(&quot;Data&quot;, &quot;MOFA_input&quot;, &quot;proteome_top5k_hvgs_scaled_tumor.csv&quot;), 
                        row.names = 1)
 cat(&quot;CPTAC proteins:&quot;, nrow(cptac_prot), &quot;\n&quot;)</code></pre>
 <pre><code>## CPTAC proteins: 5000</code></pre>
 <pre class="r"><code># Tong protein matrix (tumor samples only)
-tong_raw &lt;- read_excel(here(&quot;Tong-PDA&quot;, &quot;13045_2022_1384_MOESM25_ESM.xlsx&quot;), 
+tong_raw &lt;- read_excel(here(&quot;Data&quot;, &quot;Tong-PDA&quot;, &quot;13045_2022_1384_MOESM25_ESM.xlsx&quot;), 
                        sheet = &quot;Table S3A &quot;)
 t_cols &lt;- grep(&quot;T$&quot;, names(tong_raw), value = TRUE)
 symbols &lt;- tong_raw[[1]]
@@ -1634,10 +1637,10 @@ cat(&quot;Tong tumor samples:&quot;, length(t_cols), &quot;\n&quot;)</code></pre
 <pre class="r"><code>cat(&quot;Tong proteins:&quot;, length(symbols), &quot;\n&quot;)</code></pre>
 <pre><code>## Tong proteins: 7055</code></pre>
 <pre class="r"><code># APGI protein matrix (tumor samples)
-apgi_raw &lt;- read.csv(here(&quot;APGI-PDA&quot;, &quot;APGI_protein_matrix_and_metadata.csv&quot;), 
+apgi_raw &lt;- read.csv(here(&quot;Data&quot;, &quot;APGI-PDA&quot;, &quot;APGI_protein_matrix_and_metadata.csv&quot;), 
                      row.names = 1, check.names = FALSE)
 apgi_prot_uniprot &lt;- apgi_raw[, !names(apgi_raw) %in% c(&quot;Length.of.Follow.up..days.&quot;, &quot;OS&quot;)]
-apgi_gene_map &lt;- read.csv(here(&quot;APGI-PDA&quot;, &quot;APGI_protein_and_gene_names.csv&quot;))
+apgi_gene_map &lt;- read.csv(here(&quot;Data&quot;, &quot;APGI-PDA&quot;, &quot;APGI_protein_and_gene_names.csv&quot;))
 uniprot_to_gene &lt;- setNames(apgi_gene_map$Genes, apgi_gene_map$UniprotID)
 mapped &lt;- uniprot_to_gene[names(apgi_prot_uniprot)]
 mapped &lt;- mapped[!is.na(mapped)]
@@ -1785,16 +1788,13 @@ Threshold</caption>
 </table>
 <hr />
 </div>
-<div id="protein-signature-detection" class="section level2">
-<h2>5. 18-Protein Signature Detection</h2>
-<pre class="r"><code>sig_proteins &lt;- sig$Protein
+<div id="signature-detection-rates-in-validation-cohorts" class="section level2">
+<h2>5. Signature Detection Rates in Validation Cohorts</h2>
+<pre class="r"><code>sig_proteins &lt;- unique(c(sig$Protein, sig2$Protein))
 
 sig_results &lt;- data.frame(Protein = sig_proteins)
 
 # Tong
-sig_results$Tong_Detected &lt;- sapply(sig_proteins, function(p) {
-  p %in% symbols
-})
 sig_results$Tong_Pct &lt;- sapply(sig_proteins, function(p) {
   idx &lt;- which(symbols == p)
   if (length(idx) == 0) return(NA)
@@ -1803,154 +1803,127 @@ sig_results$Tong_Pct &lt;- sapply(sig_proteins, function(p) {
 })
 
 # APGI
-sig_results$APGI_Detected &lt;- sapply(sig_proteins, function(p) {
-  p %in% colnames(apgi_prot)
-})
 sig_results$APGI_Pct &lt;- sapply(sig_proteins, function(p) {
   if (!p %in% colnames(apgi_prot)) return(NA)
   vals &lt;- apgi_prot[[p]]
   round(sum(!is.na(vals)) / length(vals) * 100, 1)
 })
 
-knitr::kable(sig_results, caption = &quot;18-Protein Signature: Detection Rates in Validation Cohorts&quot;,
+knitr::kable(sig_results, caption = &quot;Signatures: Detection Rates in Validation Cohorts&quot;,
              digits = 1)</code></pre>
 <table>
-<caption>18-Protein Signature: Detection Rates in Validation
-Cohorts</caption>
+<caption>Signatures: Detection Rates in Validation Cohorts</caption>
 <thead>
 <tr class="header">
 <th align="left">Protein</th>
-<th align="left">Tong_Detected</th>
 <th align="right">Tong_Pct</th>
-<th align="left">APGI_Detected</th>
 <th align="right">APGI_Pct</th>
 </tr>
 </thead>
 <tbody>
 <tr class="odd">
-<td align="left">HMGCS2</td>
-<td align="left">TRUE</td>
-<td align="right">36.3</td>
-<td align="left">TRUE</td>
-<td align="right">54.0</td>
-</tr>
-<tr class="even">
 <td align="left">ADH1C</td>
-<td align="left">TRUE</td>
 <td align="right">84.1</td>
-<td align="left">TRUE</td>
 <td align="right">65.3</td>
 </tr>
-<tr class="odd">
-<td align="left">F3</td>
-<td align="left">TRUE</td>
-<td align="right">18.1</td>
-<td align="left">TRUE</td>
-<td align="right">45.5</td>
-</tr>
 <tr class="even">
+<td align="left">GPD1</td>
+<td align="right">93.8</td>
+<td align="right">84.1</td>
+</tr>
+<tr class="odd">
 <td align="left">TNC</td>
-<td align="left">TRUE</td>
 <td align="right">100.0</td>
-<td align="left">TRUE</td>
 <td align="right">93.8</td>
 </tr>
-<tr class="odd">
+<tr class="even">
 <td align="left">MYH11</td>
-<td align="left">TRUE</td>
 <td align="right">100.0</td>
-<td align="left">TRUE</td>
 <td align="right">100.0</td>
+</tr>
+<tr class="odd">
+<td align="left">SLC2A1</td>
+<td align="right">97.3</td>
+<td align="right">88.1</td>
 </tr>
 <tr class="even">
-<td align="left">TK1</td>
-<td align="left">TRUE</td>
-<td align="right">17.3</td>
-<td align="left">FALSE</td>
-<td align="right">NA</td>
+<td align="left">CD55</td>
+<td align="right">96.5</td>
+<td align="right">69.9</td>
 </tr>
 <tr class="odd">
-<td align="left">PRKCB</td>
-<td align="left">TRUE</td>
-<td align="right">77.9</td>
-<td align="left">TRUE</td>
-<td align="right">87.5</td>
+<td align="left">FABP3</td>
+<td align="right">97.3</td>
+<td align="right">90.9</td>
+</tr>
+<tr class="even">
+<td align="left">NT5E</td>
+<td align="right">99.1</td>
+<td align="right">95.5</td>
+</tr>
+<tr class="odd">
+<td align="left">KYNU</td>
+<td align="right">88.1</td>
+<td align="right">74.4</td>
 </tr>
 <tr class="even">
 <td align="left">KPNA2</td>
-<td align="left">TRUE</td>
 <td align="right">88.5</td>
-<td align="left">TRUE</td>
 <td align="right">69.3</td>
 </tr>
 <tr class="odd">
 <td align="left">C1QC</td>
-<td align="left">TRUE</td>
 <td align="right">100.0</td>
-<td align="left">TRUE</td>
 <td align="right">90.3</td>
 </tr>
 <tr class="even">
 <td align="left">GNAO1</td>
-<td align="left">TRUE</td>
 <td align="right">96.5</td>
-<td align="left">TRUE</td>
 <td align="right">81.8</td>
 </tr>
 <tr class="odd">
-<td align="left">CBR1</td>
-<td align="left">TRUE</td>
+<td align="left">NAMPT</td>
 <td align="right">100.0</td>
-<td align="left">TRUE</td>
+<td align="right">100.0</td>
+</tr>
+<tr class="even">
+<td align="left">CBR1</td>
+<td align="right">100.0</td>
 <td align="right">99.4</td>
-</tr>
-<tr class="even">
-<td align="left">IFITM3</td>
-<td align="left">TRUE</td>
-<td align="right">71.2</td>
-<td align="left">TRUE</td>
-<td align="right">63.1</td>
-</tr>
-<tr class="odd">
-<td align="left">CEBPB</td>
-<td align="left">FALSE</td>
-<td align="right">NA</td>
-<td align="left">TRUE</td>
-<td align="right">43.8</td>
-</tr>
-<tr class="even">
-<td align="left">HLA-E</td>
-<td align="left">FALSE</td>
-<td align="right">NA</td>
-<td align="left">FALSE</td>
-<td align="right">NA</td>
 </tr>
 <tr class="odd">
 <td align="left">PCNA</td>
-<td align="left">TRUE</td>
 <td align="right">95.6</td>
-<td align="left">TRUE</td>
 <td align="right">100.0</td>
 </tr>
 <tr class="even">
-<td align="left">SHMT2</td>
-<td align="left">TRUE</td>
+<td align="left">ALDH9A1</td>
 <td align="right">100.0</td>
-<td align="left">TRUE</td>
 <td align="right">100.0</td>
 </tr>
 <tr class="odd">
-<td align="left">MRTO4</td>
-<td align="left">TRUE</td>
-<td align="right">85.0</td>
-<td align="left">TRUE</td>
-<td align="right">65.3</td>
+<td align="left">PYGL</td>
+<td align="right">99.6</td>
+<td align="right">93.8</td>
 </tr>
 <tr class="even">
 <td align="left">IDH1</td>
-<td align="left">TRUE</td>
 <td align="right">100.0</td>
-<td align="left">TRUE</td>
+<td align="right">100.0</td>
+</tr>
+<tr class="odd">
+<td align="left">SUCLG1</td>
+<td align="right">99.6</td>
+<td align="right">99.4</td>
+</tr>
+<tr class="even">
+<td align="left">GBE1</td>
+<td align="right">100.0</td>
+<td align="right">96.0</td>
+</tr>
+<tr class="odd">
+<td align="left">SHMT2</td>
+<td align="right">100.0</td>
 <td align="right">100.0</td>
 </tr>
 </tbody>
@@ -2008,11 +1981,11 @@ tumor detection:“, sum(apgi_detection &gt;= 80, na.rm = TRUE),”“) cat(”
 &gt;=70% tumor detection:“, sum(apgi_detection &gt;= 70, na.rm =
 TRUE),”“) cat(” &gt;=60% tumor detection:“, sum(apgi_detection &gt;= 60,
 na.rm = TRUE),”“)</p>
-<p>cat(“18-Protein Signature:”) cat(” Tong &gt;=80%:“,
+<p>cat(“Signatures (combined):”) cat(” Tong &gt;=80%:“,
 sum(sig_results<span class="math inline">\(Tong_Pct &gt;= 80, na.rm =
-TRUE), &quot;/ 18\n&quot;)
+TRUE), &quot;/&quot;, nrow(sig_results), &quot;\n&quot;)
 cat(&quot;  APGI &gt;=80%:&quot;, sum(sig_results\)</span>APGI_Pct &gt;=
-80, na.rm = TRUE),”/ 18“)
+80, na.rm = TRUE),”/“, nrow(sig_results),”“)
 cat(”========================================================“) ```</p>
 </div>
 

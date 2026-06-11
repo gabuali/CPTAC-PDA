@@ -1,6 +1,6 @@
 ---
-title: "External Validation of 18-Protein Lasso-Cox Signature on Tong Cohort"
-subtitle: "Survival Analysis: Kaplan-Meier, C-index, Time-Dependent ROC"
+title: "External Validation of Signatures on Tong Cohort"
+subtitle: "Two Signatures: Tong ≥80% and Both Cohorts ≥80%"
 author: "CPTAC-PDA Analysis"
 date: "`r Sys.Date()`"
 output: 
@@ -17,28 +17,23 @@ library(tidyverse)
 library(survival)
 library(survminer)
 library(readxl)
+library(here)
+library(survivalROC)
 ```
 
 ## Overview
 
-Validates the 18-protein Lasso-Cox signature from CPTAC-PDA on the independent Tong et al. (2022) cohort. The signature was derived from 140 CPTAC-PDA patients and is tested here on 226 Tong PDAC patients.
+Validates two Lasso-Cox signatures from CPTAC-PDA on the independent Tong et al. (2022) cohort (226 PDAC tumors).
 
-**Key analyses:**
-1. Kaplan-Meier survival curves (median split)
-2. Concordance Index (C-index)
-3. Time-Dependent ROC at 1 and 2 years
+**Signatures:**
+1. Tong ≥80% — proteins detected in ≥80% of Tong tumors
+2. Both Cohorts ≥80% — proteins detected in ≥80% of both Tong & APGI
 
 ---
 
-## 1. Load Data
+## 1. Load Survival Data
 
-```{r load}
-# Validation data (prepared in 01_prepare_tong_validation_data.Rmd)
-val <- read.csv(here("Data", "Tong-PDA", "tong_validation_data_prepared.csv"))
-cat("Validation data:", nrow(val), "samples\n")
-cat("Proteins:", sum(!names(val) %in% c("RiskScore", "SampleID")), "\n")
-
-# Survival data
+```{r load_survival}
 surv_raw <- read_excel(here("Data", "Tong-PDA", "13045_2022_1384_MOESM23_ESM.xlsx"), sheet = "Table S1B")
 surv <- data.frame(
   SampleID = as.character(surv_raw[[1]]),
@@ -46,164 +41,179 @@ surv <- data.frame(
   OS_event = as.numeric(as.character(surv_raw[["Status of OS ( 1: death; 0: survival or loss to follow up )"]]))
 )
 cat("Survival data:", nrow(surv), "samples\n")
-
-# Merge: strip 'T' suffix from validation IDs to match survival IDs
-val$PatientID <- gsub("T$", "", val$SampleID)
-merged <- inner_join(val, surv, by = c("PatientID" = "SampleID"))
-cat("\nMerged dataset:", nrow(merged), "patients\n")
 ```
 
 ---
 
-## 2. Kaplan-Meier Analysis
+## 2. Validation Function
 
-Median risk score split to define High and Low risk groups, matching CPTAC-PDA validation.
-
-```{r km}
-# Median split
-median_risk <- median(merged$RiskScore)
-merged$RiskGroup <- ifelse(merged$RiskScore > median_risk, "High Risk", "Low Risk")
-cat("Median risk score:", round(median_risk, 4), "\n")
-cat("High Risk:", sum(merged$RiskGroup == "High Risk"), "\n")
-cat("Low Risk:", sum(merged$RiskGroup == "Low Risk"), "\n")
-
-# Convert OS from months to days (for consistency with CPTAC analysis)
-merged$OS_time <- merged$OS_days * 30.4375  # average days per month
-
-# Fit KM
-km_fit <- survfit(Surv(OS_time, OS_event) ~ RiskGroup, data = merged)
-
-# Plot
-ggsurvplot(km_fit, 
-           data = merged,
-           pval = TRUE,
-           conf.int = TRUE,
-           risk.table = TRUE,
-           ggtheme = theme_bw(),
-           palette = c("#E41A1C", "#377EB8"),
-           title = "Tong Cohort: 11-Protein Signature Survival",
-           xlab = "Time (days)",
-           ylab = "Overall Survival Probability")
-```
-
-```{r median_summary}
-# Median survival by group
-km_summary <- surv_median(km_fit)
-print(km_summary)
-
-# Log-rank test
-lr <- survdiff(Surv(OS_time, OS_event) ~ RiskGroup, data = merged)
-p_val <- 1 - pchisq(lr$chisq, df = 1)
-cat("\nLog-rank p-value:", format(p_val, digits = 4), "\n")
-
-# Cox PH model for Hazard Ratio
-cox_model <- coxph(Surv(OS_time, OS_event) ~ RiskGroup, data = merged)
-cox_summary <- summary(cox_model)
-hr <- cox_summary$conf.int[1]
-hr_lower <- cox_summary$conf.int[3]
-hr_upper <- cox_summary$conf.int[4]
-hr_p <- cox_summary$waldtest[3]
-
-cat("\nHazard Ratio (High vs Low Risk):", round(hr, 4), "\n")
-cat("95% CI:", round(hr_lower, 4), "-", round(hr_upper, 4), "\n")
-cat("p-value:", format(hr_p, digits = 4), "\n")
-
-# Continuous RiskScore HR
-cox_cont <- coxph(Surv(OS_time, OS_event) ~ RiskScore, data = merged)
-cat("\nHR per unit RiskScore:", round(exp(coef(cox_cont)), 4), 
-    "(p =", format(summary(cox_cont)$waldtest[3], digits = 4), ")\n")
-```
-
----
-
-## 3. Concordance Index (C-index)
-
-```{r cindex}
-# C-index for the signature risk score
-c_index <- concordance(Surv(OS_time, OS_event) ~ RiskScore, data = merged)
-cat("Raw C-index:", round(c_index$concordance, 4), "\n")
-cat("Adjusted C-index (flip if <0.5):", 
-    round(ifelse(c_index$concordance < 0.5, 1 - c_index$concordance, c_index$concordance), 4), "\n")
-
-# Compare with CPTAC cohort results
-cat("\n--- Comparison ---\n")
-cat("CPTAC (18-protein): True C-index = 0.7359\n")
-cat("Tong (11-protein):  True C-index =", 
-    round(ifelse(c_index$concordance < 0.5, 1 - c_index$concordance, c_index$concordance), 4), "\n")
-```
-
----
-
-## 4. Time-Dependent ROC
-
-```{r roc, warning=FALSE}
-# Check if survivalROC is available
-if (!require("survivalROC", quietly = TRUE)) {
-  install.packages("survivalROC", repos = "https://cran.r-project.org")
-  library(survivalROC)
+```{r validation_function}
+validate_tong <- function(sig_label) {
+  cat("\n========================================\n")
+  cat("Validating:", sig_label, "\n")
+  cat("========================================\n")
+  
+  # Load prepared Tong data
+  infile <- paste0("tong_validation_", sig_label, ".csv")
+  val <- read.csv(here("Data", "Tong-PDA", infile))
+  cat("Validation data:", nrow(val), "samples\n")
+  
+  # Merge with survival
+  val$SampleID_clean <- gsub("T$", "", val$SampleID)
+  merged <- merge(val, surv, by.x = "SampleID_clean", by.y = "SampleID")
+  merged <- merged[!duplicated(merged$SampleID_clean), ]
+  cat("Merged samples:", nrow(merged), "\n")
+  
+  # Median split
+  median_risk <- median(merged$RiskScore)
+  merged$RiskGroup <- ifelse(merged$RiskScore > median_risk, "High Risk", "Low Risk")
+  cat("Median risk score:", round(median_risk, 4), "\n")
+  cat("High Risk:", sum(merged$RiskGroup == "High Risk"), "\n")
+  cat("Low Risk:", sum(merged$RiskGroup == "Low Risk"), "\n")
+  
+  # Convert OS from months to days
+  merged$OS_time <- merged$OS_days * 30.4375
+  
+  # --- KM ---
+  km_fit <- survfit(Surv(OS_time, OS_event) ~ RiskGroup, data = merged)
+  
+  # --- Log-rank ---
+  lr <- survdiff(Surv(OS_time, OS_event) ~ RiskGroup, data = merged)
+  logrank_p <- 1 - pchisq(lr$chisq, df = 1)
+  
+  # --- Median survival ---
+  km_summary <- surv_median(km_fit)
+  
+  # --- Cox (categorical) ---
+  cox_cat <- coxph(Surv(OS_time, OS_event) ~ RiskGroup, data = merged)
+  cox_cat_sum <- summary(cox_cat)
+  
+  # --- Cox (continuous) ---
+  cox_cont <- coxph(Surv(OS_time, OS_event) ~ RiskScore, data = merged)
+  cox_cont_sum <- summary(cox_cont)
+  
+  hr_cont <- exp(coef(cox_cont))
+  hr_cont_ci <- exp(confint(cox_cont))
+  hr_cont_p <- cox_cont_sum$coefficients[5]
+  
+  cat(sprintf("HR per unit RiskScore: %.2f (%.2f-%.2f), p = %.1e\n", 
+              hr_cont, hr_cont_ci[1], hr_cont_ci[2], hr_cont_p))
+  
+  # --- C-index ---
+  c_index <- concordance(Surv(OS_time, OS_event) ~ RiskScore, data = merged)$concordance
+  c_index <- ifelse(c_index < 0.5, 1 - c_index, c_index)
+  cat("C-index:", round(c_index, 3), "\n")
+  
+  # --- Time-Dependent AUC ---
+  res_1yr <- survivalROC(Stime = merged$OS_days, status = merged$OS_event,
+                          marker = merged$RiskScore, predict.time = 12, method = "KM")
+  res_2yr <- survivalROC(Stime = merged$OS_days, status = merged$OS_event,
+                          marker = merged$RiskScore, predict.time = 24, method = "KM")
+  cat("1-Year AUC:", round(res_1yr$AUC, 3), "\n")
+  cat("2-Year AUC:", round(res_2yr$AUC, 3), "\n")
+  
+  # Number of proteins used in this signature
+  n_prot <- sum(!names(val) %in% c("RiskScore", "SampleID", "SampleID_clean"))
+  
+  results <- data.frame(
+    Signature = sig_label,
+    N_Samples = nrow(merged),
+    N_Proteins = n_prot,
+    HR = round(hr_cont, 3),
+    HR_Lower = round(hr_cont_ci[1], 3),
+    HR_Upper = round(hr_cont_ci[2], 3),
+    HR_pval = format(hr_cont_p, digits = 4),
+    C_Index = round(c_index, 3),
+    LogRank_pval = format(logrank_p, digits = 4),
+    AUC_1yr = round(res_1yr$AUC, 3),
+    AUC_2yr = round(res_2yr$AUC, 3),
+    MedianSurv_High = round(km_summary$median[1], 1),
+    MedianSurv_Low = round(km_summary$median[2], 1)
+  )
+  
+  return(list(
+    label = sig_label,
+    results = results,
+    merged = merged,
+    km_fit = km_fit,
+    cox_cont = cox_cont,
+    c_index = c_index,
+    logrank_p = logrank_p,
+    auc_1yr = res_1yr$AUC,
+    auc_2yr = res_2yr$AUC
+  ))
 }
-
-# 1-year and 2-year ROC (using months for interpretability)
-res_1yr <- survivalROC(
-  Stime = merged$OS_days,
-  status = merged$OS_event,
-  marker = merged$RiskScore,
-  predict.time = 12,
-  method = "KM"
-)
-
-res_2yr <- survivalROC(
-  Stime = merged$OS_days,
-  status = merged$OS_event,
-  marker = merged$RiskScore,
-  predict.time = 24,
-  method = "KM"
-)
-
-# Plot
-plot(res_1yr$FP, res_1yr$TP, type = "l", col = "#E41A1C", lwd = 3,
-     xlim = c(0, 1), ylim = c(0, 1),
-     xlab = "1 - Specificity", ylab = "Sensitivity",
-     main = "Tong Cohort: Time-Dependent ROC")
-lines(res_2yr$FP, res_2yr$TP, col = "#377EB8", lwd = 3)
-abline(0, 1, lty = 2, col = "darkgrey")
-
-legend("bottomright",
-       c(paste0("1-Year (AUC = ", round(res_1yr$AUC, 2), ")"),
-         paste0("2-Year (AUC = ", round(res_2yr$AUC, 2), ")")),
-       col = c("#E41A1C", "#377EB8"), lty = 1, lwd = 3)
 ```
 
 ---
 
-## Summary
+## 3. Run Validation
 
-```{r summary}
-cat("========================================\n")
-cat("TONG COHORT VALIDATION - RESULTS\n")
-cat("========================================\n\n")
-cat("Sample size:", nrow(merged), "\n")
-cat("Signature proteins available:", 
-    sum(!names(val) %in% c("RiskScore", "SampleID", "PatientID")), "/ 18\n\n")
-
-cat("Kaplan-Meier:\n")
-cat("  Median survival (High Risk):", round(km_summary$median[1], 1), "days\n")
-cat("  Median survival (Low Risk):", round(km_summary$median[2], 1), "days\n")
-cat("  Log-rank p:", format(p_val, digits = 4), "\n\n")
-
-c_adj <- ifelse(c_index$concordance < 0.5, 1 - c_index$concordance, c_index$concordance)
-cat("C-index (adjusted):", round(c_adj, 4), "\n\n")
-
-cat("Time-Dependent AUC:\n")
-cat("  1-year:", round(res_1yr$AUC, 3), "\n")
-cat("  2-year:", round(res_2yr$AUC, 3), "\n")
-cat("========================================\n")
+```{r run_validation}
+sig_labels <- c("Tong_ge80pct", "Both_ge80pct")
+val_results <- list()
+for (sig in sig_labels) {
+  r <- validate_tong(sig)
+  if (!is.null(r)) val_results[[length(val_results) + 1]] <- r
+}
 ```
 
 ---
 
-## Session Info
+## 4. Summary Table
 
-```{r}
-sessionInfo()
+```{r summary_table}
+metrics_df <- do.call(rbind, lapply(val_results, function(r) r$results))
+knitr::kable(metrics_df, caption = "Tong Validation Results", digits = 3)
+```
+
+---
+
+## 5. Kaplan-Meier Curves
+
+```{r km_curves, fig.width=8, fig.height=6}
+for (res in val_results) {
+  p <- ggsurvplot(res$km_fit, data = res$merged, pval = TRUE, risk.table = TRUE,
+                  conf.int = TRUE,
+                  title = paste("Tong Validation:", res$label),
+                  xlab = "Time (days)", ylab = "Overall Survival",
+                  palette = c("#E41A1C", "#377EB8"),
+                  legend.title = "Risk Group",
+                  legend.labs = c("High Risk", "Low Risk"))
+  print(p)
+}
+```
+
+---
+
+## 6. Time-Dependent ROC Curves
+
+```{r roc_curves, fig.width=7, fig.height=7}
+for (res in val_results) {
+  merged <- res$merged
+  res_1yr <- survivalROC(Stime = merged$OS_days, status = merged$OS_event,
+                          marker = merged$RiskScore, predict.time = 12, method = "KM")
+  res_2yr <- survivalROC(Stime = merged$OS_days, status = merged$OS_event,
+                          marker = merged$RiskScore, predict.time = 24, method = "KM")
+  
+  plot(res_1yr$FP, res_1yr$TP, type = "l", col = "#E41A1C", lwd = 3,
+       xlim = c(0, 1), ylim = c(0, 1),
+       xlab = "1 - Specificity", ylab = "Sensitivity",
+       main = paste("Tong:", res$label))
+  lines(res_2yr$FP, res_2yr$TP, col = "#377EB8", lwd = 3)
+  abline(0, 1, lty = 2, col = "darkgrey")
+  legend("bottomright",
+         c(paste0("1-Year (AUC = ", round(res_1yr$AUC, 2), ")"),
+           paste0("2-Year (AUC = ", round(res_2yr$AUC, 2), ")")),
+         col = c("#E41A1C", "#377EB8"), lty = 1, lwd = 3)
+}
+```
+
+---
+
+## 7. Export Results
+
+```{r export, include=FALSE}
+write.csv(metrics_df, here("Results", "Tong_Validation_MetricsSummary.csv"), row.names = FALSE)
+cat("Exported to Results/Tong_Validation_MetricsSummary.csv\n")
 ```

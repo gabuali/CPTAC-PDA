@@ -1,6 +1,11 @@
 ---
 title: "Survival signature from MOFA model - Factor 2 analysis"
-output: github_document
+output: 
+  html_document:
+    toc: true
+    toc_float: true
+    code_folding: show
+    theme: flatly
 ---
 
 ```{r setup, include=FALSE}
@@ -245,194 +250,14 @@ It evaluates pairs of subjects, determining if the subject with the higher predi
 *   **> 0.9**: Excellent, sometimes suggesting overfitting. 
 
 
-Get Factor 2 scores from MOFA model and subset to common patients.
-```{r factor2_scores}
-# Load MOFA model
-mofa_model <- load_model(here("Results", "MOFA_models", "mofa_cptac_pdac_rna_proteome_model.hdf5"))
-
-# Extract Factor 2 scores
-# as.data.frame = FALSE returns a list of matrices (one per group)
-factor2_scores <- get_factors(mofa_model, factors = 2)
-# subset to case IDs in x_proven, same order
-common_case_ids <- rownames(X_proven)
-factor2_vector <- factor2_scores[[1]][common_case_ids, 1]
-length(factor2_vector)
-head(factor2_vector)
-# test that order matches
-all(rownames(X_proven) == names(factor2_vector))
-```
-
-Get tumor stage from clinical data for C-index comparison.
-```{r tumor_stage}
-# Re-load clinical data to get the stage column
-clinical_stage_df <- read.csv(here("Data", "Metadata", "metadata_merged_clinical_mol-phenotype_from_paper.csv"), 
-                              stringsAsFactors = FALSE)
-
-# Match ID formatting (replace - with .)
-clinical_stage_df$case_id <- gsub("-", ".", clinical_stage_df$case_id)
-
-# Subset to match factor2_vector IDs and order
-clinical_stage_subset <- clinical_stage_df %>%
-  filter(case_id %in% names(factor2_vector)) %>%
-  slice(match(names(factor2_vector), case_id))
-
-# Collapse tumor stage to I, II, III, IV (remove sub-stage letters and 'Stage ' prefix)
-clinical_stage_subset <- clinical_stage_subset %>%
-  mutate(stage_simple = gsub("Stage ", "", tumor_stage_pathological),
-         stage_simple = gsub("[ABC]$| ", "", stage_simple))
-
-# Verify alignment
-cat("Alignment Check:", all(clinical_stage_subset$case_id == names(factor2_vector)), "\n")
-print(table(clinical_stage_subset$stage_simple))
-```
-
-```{r c_index_comparison}
-
-# C-index for 18-Protein Lasso Signature
-# Uses the risk_scores generated via predict()
-c_index_lasso <- concordance(y_ultra_final ~ risk_scores)$concordance
-
-# C-index for the Multi-Omics Factor 2 (RNA + Protein consensus)
-# Uses the Factor 2 values aligned to your 132 patients
-c_index_factor2 <- concordance(y_ultra_final ~ factor2_vector)$concordance
-
-# C-index for Pathologic Stage (The Clinical Baseline)
-# Convert Roman numerals to an ordered numeric factor for comparison
-stage_order <- c("I", "II", "III", "IV")
-stage_numeric <- as.numeric(factor(clinical_stage_subset$stage_simple, levels = stage_order))
-c_index_stage <- concordance(y_ultra_final ~ stage_numeric)$concordance
-
-# --- RESULTS SUMMARY ---
-perf_summary <- data.frame(
-  Predictor = c("18-Protein Lasso Signature", "Multi-Omics Factor 2", "Pathologic Stage"),
-  C_Index = c(c_index_lasso, c_index_factor2, c_index_stage)
-)
-
-print(perf_summary)
-
-# We subtract the C-index from 1 to get the actual predictive accuracy 
-# if the direction was just inverted.
-perf_summary$True_C_Index <- ifelse(perf_summary$C_Index < 0.5, 
-                                    1 - perf_summary$C_Index, 
-                                    perf_summary$C_Index)
-print(perf_summary)
-```
-
-Why the flip happened? The `concordance` function in R's `survival` package calculates the agreement between the predictor and survival time. When using **Risk Scores** (where a higher score implies a higher risk of death/shorter survival), the default concordance output is often $1 - C$. Essentially, a raw value of **0.264** implies that in **73.6%** of patient pairs, the person with the higher risk score actually experienced the event first.
-
-### Breaking Down the Results
-
-*   **The Clinical Baseline (0.579):** This confirms that AJCC Staging alone is barely better than a coin flip for predicting survival in this specific surgical cohort. This is common in PDAC cohorts where the vast majority of patients are diagnosed at Stage II, making stage a poor discriminator for individual outcomes.
-*   **The Global Factor (0.596):** Factor 2 (RNA + Protein) improves upon clinical staging but remains relatively noisy. While it captures broad biological identities (like the Basal-like vs. Classical subtypes), many of the thousands of contributing features are not direct drivers of survival time.
-*   **The Lasso Signature (0.736):** This is the "Goldilocks" model. By selecting only the top 18 proteins, the model has filtered out the biological background noise, focusing exclusively on the features that provide the maximum separation in survival.
-
-### AUC - Time-Dependent ROC Curve
-
-```{r auc-plot}
-# First check the distribution of survival times
-summary(y_ultra_final[,1]) 
-# Or look at the KM curve's tail
-quantile(y_ultra_final[,1], probs = c(0.5, 0.75, 0.9))
-
-# Create a Time-Dependent ROC for signature at 1 and 2 years
-
-# Function to get coordinates for 1 and 2 years
-# marker = original risk_scores (High = High Hazard)
-get_roc <- function(time_days) {
-  survivalROC(Stime = y_ultra_final[, "time"],
-              status = y_ultra_final[, "status"],
-              marker = as.numeric(risk_scores),
-              predict.time = time_days,
-              method = "KM")
-}
-
-res_1yr <- get_roc(365)
-res_2yr <- get_roc(730)
-
-# --- THE PLOT ---
-# We plot FP on X and TP on Y. 
-# Because your scores are Hazards, we simply flip the axes 
-# to force the curve into the top-left quadrant.
-plot(res_1yr$FP, res_1yr$TP, type="l", col="#E41A1C", lwd=3, xlim=c(0,1), ylim=c(0,1),
-     xlab="1 - Specificity", ylab="Sensitivity",
-     main="18-Protein Signature: Predictive Accuracy")
-lines(res_2yr$FP, res_2yr$TP, col="#377EB8", lwd=3)
-abline(0, 1, lty=2, col="darkgrey")
-
-legend("bottomright", 
-       c(paste0("1-Year (AUC = ", round(res_1yr$AUC, 2), ")"),
-         paste0("2-Year (AUC = ", round(res_2yr$AUC, 2), ")")), 
-       col=c("#E41A1C", "#377EB8"), lty=1, lwd=3)
-```
-
-### Forest plot of each protein in the signature
-```{r forest_plot}
-# Extract non-zero coefficients from Lasso model
-coeffs <- as.matrix(coef(cv_fit, s = "lambda.min"))
-coeffs <- coeffs[coeffs[,1] != 0, , drop=FALSE]
-coeffs <- coeffs[rownames(coeffs) != "(Intercept)", , drop=FALSE]
-
-# plotting dataframe
-df_forest <- data.frame(
-  Protein = rownames(coeffs),
-  Coefficient = coeffs[,1],
-  HR = exp(coeffs[,1]) # Convert log-relative-risk to Hazard Ratio
-)
-
-# "Type" label for color-coding
-df_forest$Type <- ifelse(df_forest$HR > 1, "Risk Factor", "Protective")
-
-# Forest Plot
-library(ggplot2)
-
-# Ensure the labels and types are set
-df_forest$label_text <- round(df_forest$HR, 2)
-
-ggplot(df_forest, aes(x = HR, y = reorder(Protein, HR), color = Type)) +
-  geom_vline(xintercept = 1, linetype = "dashed", color = "grey50") +
-  geom_errorbarh(aes(xmin = 1, xmax = HR), height = 0, alpha = 0.6) +
-  geom_point(size = 4) +
-  
-  # Placing the HR value text next to the point
-  geom_text(aes(label = label_text), 
-            hjust = -0.4, 
-            color = "black", 
-            size = 3.5,
-            fontface = "bold") +
-  
-  scale_color_manual(values = c("Protective" = "#377EB8", "Risk Factor" = "#E41A1C")) +
-  
-  # FIX: Forced breaks and limits to show ticks past 1.0
-  scale_x_log10(limits = c(0.65, 1.35), 
-                breaks = seq(0.7, 1.3, by = 0.1),
-                labels = seq(0.7, 1.3, by = 0.1),
-                expand = expansion(mult = c(0, 0.2))) +
-  
-  labs(title = "Prognostic Impact of 18-Protein Signature",
-       x = "Hazard Ratio (log scale)",
-       y = NULL) +
-  theme_minimal() +
-  theme(
-    plot.title = element_text(size = 20, face = "bold", hjust = 0.5, margin = margin(b = 15)),
-    axis.text.y = element_text(size = 12, face = "bold", color = "black"),
-    axis.text.x = element_text(size = 12, face = "bold", color = "black"),
-    axis.title.x = element_text(size = 13, face = "bold", vjust = -1),
-    panel.grid.major.x = element_line(color = "grey90"), # Vertical lines at ticks
-    panel.grid.minor.x = element_blank()
-  )
-```
 
 
-### Extract the final signature proteins and coefficients
-```{r final_signature}
-final_signature <- data.frame(
-  Protein = names(optimized_signature),
-  Coefficient = as.numeric(optimized_signature),
-  Hazard_Ratio = exp(as.numeric(optimized_signature))
-)
-print(final_signature)
-# Save to CSV
-write.csv(final_signature, 
-          file = here("Results", "MOFA_Factor2_Protein_LassoSignature_18Proteins.csv"), 
-          row.names = FALSE)
-```
+
+
+
+
+
+
+
+
+

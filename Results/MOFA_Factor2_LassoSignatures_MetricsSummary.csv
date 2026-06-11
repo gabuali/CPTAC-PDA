@@ -1,0 +1,4 @@
+"Input_Set","N_Candidates","N_Univariable_Sig","N_Signature_Proteins","Apparent_C_Index","HR","HR_Lower","HR_Upper","HR_pval","LogRank_pval","AUC_1yr","AUC_2yr"
+"Full Leading Edge",361,100,21,0.73,4.438,3.141,6.27,"2.918e-17","7.278e-08",0.794,0.817
+"Tong >=80% Tumors",231,65,20,0.707,4.977,3.271,7.572,"6.644e-14","4.734e-07",0.767,0.796
+"Both Cohorts >=80%",192,49,17,0.7,4.917,3.222,7.503,"1.498e-13","1.039e-06",0.756,0.789

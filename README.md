@@ -25,6 +25,8 @@ The purpose of this analysis is to find a molecular signature that is an indepen
 │   ├── PurIST_Classification_Results.csv  # Basal/Classical subtype calls
 │   ├── 11_check_leading_edge_coverage.html
 │   ├── 12_find_discriminatory_signature.html
+│   ├── 13_apgi_prep_data.html
+│   ├── 14_validate_signature_apgi.html
 │   ├── 15_prepare_tong_validation_data.html
 │   ├── 16_tong_validation_survival_analysis.html
 │   ├── factor2_under_the_hood.html
@@ -51,11 +53,11 @@ The purpose of this analysis is to find a molecular signature that is an indepen
 | 9 | `09_factor2_under_the_hood.rmd` | Deep dive into Factor 2 genes/proteins |
 | 10 | `10_gsea_mofa_factor2.rmd` | Gene Set Enrichment Analysis using MOFA Factor 2 |
 | 11 | `11_check_leading_edge_coverage.Rmd` | Check leading edge protein detection in validation cohorts |
-| 12 | `12_find_discriminatory_signature.rmd` | Survival signature discovery (Lasso-Cox) |
-| 13 | `13_apgi_prep_data.rmd` | Prepare APGI protein matrix for validation |
-| 14 | `14_validate_signature_apgi.rmd` | External validation of 18-protein signature in APGI cohort |
-| 15 | `15_prepare_tong_validation_data.Rmd` | Prepare Tong et al. proteomics data for validation |
-| 16 | `16_tong_validation_survival_analysis.Rmd` | External validation of 18-protein signature in Tong cohort |
+| 12 | `12_find_discriminatory_signature.rmd` | Lasso-Cox signature discovery (3 input sets, prevalence check) |
+| 13 | `13_apgi_prep_data.rmd` | Process APGI protein matrix and map gene symbols |
+| 14 | `14_validate_signature_apgi.rmd` | External validation of two signatures in APGI cohort |
+| 15 | `15_prepare_tong_validation_data.Rmd` | Prepare Tong proteomics data for two-signature validation |
+| 16 | `16_tong_validation_survival_analysis.Rmd` | External validation of two signatures in Tong cohort |
 
 > **Note:** Mutation data explained <0.5% of variance, so MOFAmodel_1 (RNA + protein only) was used for downstream analysis.
 
@@ -67,11 +69,12 @@ The purpose of this analysis is to find a molecular signature that is an indepen
 | [Survival Analysis](https://gabuali.github.io/CPTAC-PDA/Results/survival_analysis.html) | Cox regression and Kaplan-Meier curves |
 | [Factor 2 Deep Dive](https://gabuali.github.io/CPTAC-PDA/Results/factor2_under_the_hood.html) | Top genes/proteins driving Factor 2 |
 | [GSEA Factor 2](https://gabuali.github.io/CPTAC-PDA/Results/gsea_mofa_factor2.html) | Hallmark pathway enrichment analysis |
-| [Survival Signature Discovery](https://gabuali.github.io/CPTAC-PDA/Results/12_find_discriminatory_signature.html) | 18-Protein Lasso Signature Analysis |
+| [Survival Signature Discovery](https://gabuali.github.io/CPTAC-PDA/Results/12_find_discriminatory_signature.html) | Three-way Lasso-Cox comparison (Full, Tong≥80%, Both≥80%) |
 | [Leading Edge Coverage Check](https://gabuali.github.io/CPTAC-PDA/Results/11_check_leading_edge_coverage.html) | Leading edge protein detection across cohorts |
-| [APGI Signature Validation](https://gabuali.github.io/CPTAC-PDA/Results/14_validate_signature_apgi.html) | External validation in independent APGI cohort |
-| [Tong Data Preparation](https://gabuali.github.io/CPTAC-PDA/Results/15_prepare_tong_validation_data.html) | Prepare Tong et al. proteomics data for validation |
-| [Tong Signature Validation](https://gabuali.github.io/CPTAC-PDA/Results/16_tong_validation_survival_analysis.html) | External validation of 18-protein signature in Tong cohort |
+| [APGI Data Preparation](https://gabuali.github.io/CPTAC-PDA/Results/13_apgi_prep_data.html) | Process APGI protein matrix and map gene symbols |
+| [APGI Signature Validation](https://gabuali.github.io/CPTAC-PDA/Results/14_validate_signature_apgi.html) | External validation of both signatures in APGI cohort |
+| [Tong Data Preparation](https://gabuali.github.io/CPTAC-PDA/Results/15_prepare_tong_validation_data.html) | Prepare Tong proteomics for two-signature validation |
+| [Tong Signature Validation](https://gabuali.github.io/CPTAC-PDA/Results/16_tong_validation_survival_analysis.html) | External validation of both signatures in Tong cohort |
 
 ---
 
@@ -107,7 +110,7 @@ Downloaded from [PDC Study PDC000270](https://pdc.cancer.gov/pdc/study/PDC000270
 
 ## ✅ Signature Validation in Tong-PDA Study
 
-The 18-protein survival signature is further validated using independent proteomics data from the Tong et al. (2022) PDAC cohort.
+Two Lasso-Cox signatures (Tong ≥80% and Both Cohorts ≥80%) are validated using independent proteomics data from the Tong et al. (2022) PDAC cohort.
 
 **Tong Study Publication:** [Proteomic landscape of pancreatic ductal adenocarcinoma](https://doi.org/10.1186/s13045-022-01384-z)
 *Journal of Hematology & Oncology, 2022*
@@ -126,15 +129,16 @@ The 18-protein survival signature is further validated using independent proteom
 **Raw RNA-seq:** Available from the [Genome Sequence Archive for Human (GSA-Human)](https://ngdc.cncb.ac.cn/gsa-human/browse/HRA002195) under accession HRA002195
 
 **Validation Results:**
-- 11/18 signature proteins passed QC (16 found, 5 removed by >20% NA filter)
-- C-index (adjusted): 0.59
-- HR per unit RiskScore: 2.74 (95% CI: 1.42-5.27, p = 0.0025)
+| Signature | Proteins Used | C-index | HR (95% CI) | p-value |
+|-----------|--------------|---------|-------------|---------|
+| Tong ≥80% | 20/20 | 0.563 | 2.08 (1.17-3.70) | 0.012 |
+| Both ≥80% | 17/17 | 0.565 | 1.94 (1.06-3.56) | 0.032 |
 
 ---
 
 ## ✅ Signature Validation in APGI-PDA Study Protein Data
 
-The 18-protein survival signature identified in this analysis is validated using independent proteomics data from the Australian Pancreatic Cancer Genome Initiative (APGI).
+Two Lasso-Cox signatures (Tong ≥80% and Both Cohorts ≥80%) are validated using independent proteomics data from the Australian Pancreatic Cancer Genome Initiative (APGI).
 
 **APGI Study Publication:**  
 [Mapping the Proteomic Landscape of Pancreatic Ductal Adenocarcinoma](https://aacrjournals.org/cancerrescommun/article/5/10/1879/766828/Mapping-the-Proteomic-Landscape-of-Pancreatic)
@@ -146,7 +150,15 @@ https://ftp.pride.ebi.ac.uk/pride/data/archive/2025/09/PXD059074/
 | File | Description |
 |------|-------------|
 | `Data/APGI-PDA/APGI_protein_matrix_and_metadata.csv` | Protein abundance matrix with sample metadata |
-| `Data/APGI-PDA/APGI_protein_and_gene_names.csv` | Protein/gene name mapping, populated from `E0021_P01_SRL_with_triplicates-srl.tsv` |
+| `Data/APGI-PDA/APGI_protein_and_gene_names.csv` | Protein/gene name mapping, populated from PRIDE archive |
+| `Data/APGI-PDA/APGI_protein_matrix.csv` | Protein-only abundance matrix (step 13 output) |
+| `Data/APGI-PDA/APGI_clinical_metadata.csv` | Clinical metadata subset (step 13 output) |
+
+**Validation Results:**
+| Signature | Proteins Used | C-index | HR (95% CI) | p-value |
+|-----------|--------------|---------|-------------|---------|
+| Tong ≥80% | 20/20 | 0.510 | 1.36 (0.51-3.64) | 0.546 |
+| Both ≥80% | 17/17 | 0.585 | 1.48 (0.97-2.25) | 0.070 |
 
 ---
 

@@ -1,14 +1,20 @@
 ---
-title: "APGI-PDA data-prep"
-output: github_document
+title: "APGI-PDA Data Preparation"
+output: 
+  html_document:
+    toc: true
+    toc_float: true
+    code_folding: show
+    theme: flatly
 ---
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 library(tidyverse)
+library(here)
 ```
 
-Prepare protein matrix and clinical metadata from APGI-PDA cohort for validation of 18-protein signature for discrimination of short-term survivors in pancreatic ductal adenocarcinoma (PDA).
+Prepare protein matrix and clinical metadata from APGI-PDA cohort for validation of prognostic signatures in pancreatic ductal adenocarcinoma (PDA).
 ```{r load_protein_metadata}
 # Load protein data
 prot_df <- read.csv(here("Data", "APGI-PDA", "APGI_protein_matrix_and_metadata.csv"), row.names = 1)
@@ -32,17 +38,20 @@ write.csv(clinical_data, here("Data", "APGI-PDA", "APGI_clinical_metadata.csv"),
 
 Prepare gene symbol mapping for protein data
 ```{r gene_symbol_mapping}
-# extract gene symbol mapping
-gene_names <- read.csv(here("Data", "APGI-PDA", "E0021_P01_SRL_with_triplicates-srl.tsv"), sep = "\t")
-# subset to cols ProteinGroup	ProteinName	Genes	UniprotID
-gene_names <- gene_names %>%
-  select(ProteinGroup, ProteinName, Genes, UniprotID)
-head(gene_names)
-# deduplicate identical rows
-gene_names <- gene_names[!duplicated(gene_names), ]
-print(dim(gene_names))
-# save gene symbol mapping
-write.csv(gene_names, here("Data", "APGI-PDA", "APGI_protein_and_gene_names.csv"), row.names = FALSE)
+# Gene symbol mapping already exists from PRIDE archive
+gene_names_path <- here("Data", "APGI-PDA", "APGI_protein_and_gene_names.csv")
+if (file.exists(gene_names_path)) {
+  gene_names <- read.csv(gene_names_path)
+  cat("Loaded existing gene mapping:", nrow(gene_names), "entries\n")
+} else {
+  # Extract from raw TSV (PRIDE: E0021_P01_SRL_with_triplicates-srl.tsv)
+  gene_names <- read.csv(gene_names_path, sep = "\t")
+  gene_names <- gene_names %>%
+    select(ProteinGroup, ProteinName, Genes, UniprotID)
+  gene_names <- gene_names[!duplicated(gene_names), ]
+  write.csv(gene_names, gene_names_path, row.names = FALSE)
+  cat("Created gene mapping:", nrow(gene_names), "entries\n")
+}
 ```
 
 Map gene names to protein matrix col names.

@@ -20,7 +20,7 @@ library(here)
 
 ## Overview
 
-The 18-protein Lasso-Cox signature was derived from a pool of 361 leading edge proteins identified by GSEA of MOFA Factor 2 protein loadings. Before building the Lasso model, we assess how many of these 361 proteins are reliably detected in the independent validation cohorts (APGI and Tong). This informs feature selection — proteins with low detection rates in external data will have limited generalizability.
+The Lasso-Cox signatures were derived from a pool of 361 leading edge proteins identified by GSEA of MOFA Factor 2 protein loadings. Before building the Lasso model, we assess how many of these 361 proteins are reliably detected in the independent validation cohorts (APGI and Tong). This informs feature selection — proteins with low detection rates in external data will have limited generalizability.
 
 **Key question:** What fraction of leading edge proteins are detected in ≥60%, ≥70%, ≥80% of tumor samples in each validation cohort?
 
@@ -34,9 +34,11 @@ leading_edge <- scan(here("Results", "MOFA_Factor2_Protein_LeadingEdgeGenes_top1
                      what = character())
 cat("Leading edge proteins:", length(leading_edge), "\n")
 
-# 18-protein Lasso-Cox signature
-sig <- read.csv(here("Results", "MOFA_Factor2_Protein_LassoSignature_18Proteins.csv"))
-cat("Signature proteins:", nrow(sig), "\n")
+# Lasso-Cox signatures
+sig <- read.csv(here("Results", "MOFA_Factor2_LassoSignature_Tong_ge80pct_Tumors.csv"))
+cat("Tong >=80% signature:", nrow(sig), "proteins\n")
+sig2 <- read.csv(here("Results", "MOFA_Factor2_LassoSignature_Both_Cohorts_ge80pct.csv"))
+cat("Both >=80% signature:", nrow(sig2), "proteins\n")
 
 # CPTAC proteome (reference - TMT discovery cohort)
 cptac_prot <- read.csv(here("Data", "MOFA_input", "proteome_top5k_hvgs_scaled_tumor.csv"), 
@@ -150,17 +152,14 @@ knitr::kable(summary_df,
 
 ---
 
-## 5. 18-Protein Signature Detection
+## 5. Signature Detection Rates in Validation Cohorts
 
 ```{r sig_detection}
-sig_proteins <- sig$Protein
+sig_proteins <- unique(c(sig$Protein, sig2$Protein))
 
 sig_results <- data.frame(Protein = sig_proteins)
 
 # Tong
-sig_results$Tong_Detected <- sapply(sig_proteins, function(p) {
-  p %in% symbols
-})
 sig_results$Tong_Pct <- sapply(sig_proteins, function(p) {
   idx <- which(symbols == p)
   if (length(idx) == 0) return(NA)
@@ -169,16 +168,13 @@ sig_results$Tong_Pct <- sapply(sig_proteins, function(p) {
 })
 
 # APGI
-sig_results$APGI_Detected <- sapply(sig_proteins, function(p) {
-  p %in% colnames(apgi_prot)
-})
 sig_results$APGI_Pct <- sapply(sig_proteins, function(p) {
   if (!p %in% colnames(apgi_prot)) return(NA)
   vals <- apgi_prot[[p]]
   round(sum(!is.na(vals)) / length(vals) * 100, 1)
 })
 
-knitr::kable(sig_results, caption = "18-Protein Signature: Detection Rates in Validation Cohorts",
+knitr::kable(sig_results, caption = "Signatures: Detection Rates in Validation Cohorts",
              digits = 1)
 ```
 
@@ -232,8 +228,8 @@ cat("  >=80% tumor detection:", sum(apgi_detection >= 80, na.rm = TRUE), "\n")
 cat("  >=70% tumor detection:", sum(apgi_detection >= 70, na.rm = TRUE), "\n")
 cat("  >=60% tumor detection:", sum(apgi_detection >= 60, na.rm = TRUE), "\n\n")
 
-cat("18-Protein Signature:\n")
-cat("  Tong >=80%:", sum(sig_results$Tong_Pct >= 80, na.rm = TRUE), "/ 18\n")
-cat("  APGI >=80%:", sum(sig_results$APGI_Pct >= 80, na.rm = TRUE), "/ 18\n")
+cat("Signatures (combined):\n")
+cat("  Tong >=80%:", sum(sig_results$Tong_Pct >= 80, na.rm = TRUE), "/", nrow(sig_results), "\n")
+cat("  APGI >=80%:", sum(sig_results$APGI_Pct >= 80, na.rm = TRUE), "/", nrow(sig_results), "\n")
 cat("========================================================\n")
 ```

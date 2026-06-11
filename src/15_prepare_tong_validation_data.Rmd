@@ -1,6 +1,6 @@
 ---
-title: "Prepare Tong Cohort for 18-Protein Signature Validation"
-subtitle: "Data preparation of Tong et al. (J Hematol Oncol, 2022) proteomics"
+title: "Prepare Tong Cohort for Signature Validation"
+subtitle: "Two Signatures: Tong ≥80% and Both Cohorts ≥80%"
 author: "CPTAC-PDA Analysis"
 date: "`r Sys.Date()`"
 output: 
@@ -15,32 +15,35 @@ output:
 knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
 library(tidyverse)
 library(readxl)
+library(here)
 ```
 
 ## Overview
 
-Prepares the Tong et al. (2022) proteomics cohort for external validation of the CPTAC-PDA 18-protein Lasso-Cox signature.
+Prepares the Tong et al. (2022) proteomics cohort for external validation of two Lasso-Cox signatures:
 
-**Data sources:**
-1. CPTAC Signature: 18 proteins (Gene Symbols) with Lasso-Cox coefficients
-2. Tong Table S3A: 7,055 protein groups in 226 tumors + 220 NATs (at least 1/6 of samples)
+1. **Tong ≥80% Signature** (proteins detected in ≥80% of Tong tumors)
+2. **Both Cohorts ≥80% Signature** (proteins detected in ≥80% of both Tong & APGI)
 
-**Workflow:** Load Tong data -> segregate tumors -> Z-score normalize -> extract signature -> save
+**Workflow:** Load Tong data → segregate tumors → Z-score normalize → extract each signature → save risk scores
 
 ---
 
-## 1. Load CPTAC Signature
+## 1. Load Signatures
 
-```{r load_signature}
-signature_df <- data.frame(
-  Protein = c("HMGCS2", "ADH1C", "F3", "TNC", "MYH11", "TK1", "PRKCB", 
-              "KPNA2", "C1QC", "GNAO1", "CBR1", "IFITM3", "CEBPB", 
-              "HLA-E", "PCNA", "SHMT2", "MRTO4", "IDH1"),
-  Coefficient = c(-0.1929, -0.01069, 0.1508, 0.06905, -0.06486, 0.03575,
-                  -0.06545, 0.02124, 0.1214, -0.03794, -0.2453, 0.08542,
-                  0.06982, 0.07697, 0.07518, 0.02068, 0.1733, -0.07292))
-print(signature_df)
-cat("\nNote: Gene Symbols already. No UniProt mapping needed.\n")
+```{r load_signatures}
+sig_files <- c(
+  "MOFA_Factor2_LassoSignature_Tong_ge80pct_Tumors.csv",
+  "MOFA_Factor2_LassoSignature_Both_Cohorts_ge80pct.csv"
+)
+sig_labels <- c("Tong_ge80pct", "Both_ge80pct")
+
+sig_list <- list()
+for (i in seq_along(sig_files)) {
+  df <- read.csv(here("Results", sig_files[i]))
+  sig_list[[sig_labels[i]]] <- df
+  cat(sig_labels[i], ":", nrow(df), "proteins\n")
+}
 ```
 
 ---
@@ -48,21 +51,16 @@ cat("\nNote: Gene Symbols already. No UniProt mapping needed.\n")
 ## 2. Load Tong Data
 
 ```{r load_tong}
-tong_raw <- read_excel("13045_2022_1384_MOESM25_ESM.xlsx", sheet = "Table S3A ")
-cat("Dim:", dim(tong_raw), "\n")
-cat("First col:", names(tong_raw)[1], "\n")
-```
+tong_raw <- read_excel(here("Data", "Tong-PDA", "13045_2022_1384_MOESM25_ESM.xlsx"), 
+                       sheet = "Table S3A ")
+cat("Tong raw dim:", dim(tong_raw), "\n")
 
-Tumor columns end with T, normal with N.
-
-```{r segregate}
+# Tumor columns end with T
 t_cols <- grep("T$", names(tong_raw), value = TRUE)
-n_cols <- grep("N$", names(tong_raw), value = TRUE)
 cat("Tumor samples:", length(t_cols), "\n")
-cat("Normal samples:", length(n_cols), "\n")
 
 # Build tumor matrix
-symbols <- tong_raw[[1]]
+symbols <- as.character(tong_raw[[1]])
 tumor_df <- tong_raw[, t_cols]
 tumor_df <- as.data.frame(lapply(tumor_df, as.numeric))
 rownames(tumor_df) <- symbols
@@ -71,78 +69,71 @@ cat("Tumor matrix:", dim(tumor_df), "\n")
 
 ---
 
-## 3. Z-score Normalize (CPTAC-style)
-
-CPTAC: filter <=20% NAs, then row-wise Z-score.
+## 3. Z-score Normalize
 
 ```{r normalize}
-# Filter
+# Filter: keep proteins with <=20% NAs
 na_pct <- rowSums(is.na(tumor_df)) / ncol(tumor_df) * 100
 keep <- na_pct <= 20
 tumor_filt <- tumor_df[keep, ]
 cat("After 20% NA filter:", nrow(tumor_filt), "proteins\n")
 
-# Vectorized Z-score
+# Row-wise Z-score
 tm <- as.matrix(tumor_filt)
 means <- rowMeans(tm, na.rm = TRUE)
 sds <- apply(tm, 1, sd, na.rm = TRUE)
 tumor_scaled <- sweep(sweep(tm, 1, means, "-"), 1, sds, "/")
-
-cat("Verification - row 1 mean:", round(mean(tumor_scaled[1,], na.rm=TRUE), 6), "\n")
-cat("Verification - row 1 sd:", round(sd(tumor_scaled[1,], na.rm=TRUE), 6), "\n")
 ```
 
 ---
 
-## 4. Extract Signature
+## 4. Extract Each Signature & Compute Risk Scores
 
-```{r extract}
-found <- intersect(signature_df$Protein, rownames(tumor_scaled))
-missing <- setdiff(signature_df$Protein, rownames(tumor_scaled))
-cat("Found:", length(found), "/ 18\n")
-cat("Missing:", paste(missing, collapse=", "), "\n")
-
-sig_mat <- tumor_scaled[found, , drop = FALSE]
-```
-
-```{r impute}
-# Check and impute NAs
-sig_na <- round(rowSums(is.na(sig_mat)) / ncol(sig_mat) * 100, 1)
-print(data.frame(Protein=names(sig_na), MissingPct=sig_na))
-
-sig_imputed <- sig_mat
-for (i in seq_len(nrow(sig_imputed))) {
-  idx <- which(is.na(sig_imputed[i,]))
-  if (length(idx) > 0) {
-    sig_imputed[i, idx] <- median(as.numeric(sig_imputed[i,]), na.rm=TRUE)
+```{r extract_save}
+for (sig_label in sig_labels) {
+  cat("\n========", sig_label, "========\n")
+  
+  sig_df <- sig_list[[sig_label]]
+  sig_proteins <- sig_df$Protein
+  
+  # Find which signature proteins are available in Tong
+  found <- intersect(sig_proteins, rownames(tumor_scaled))
+  missing <- setdiff(sig_proteins, rownames(tumor_scaled))
+  cat("Found:", length(found), "/", length(sig_proteins), "\n")
+  if (length(missing) > 0) cat("Missing:", paste(missing, collapse = ", "), "\n")
+  
+  if (length(found) < 3) {
+    cat("Too few proteins, skipping\n")
+    next
   }
+  
+  # Extract and impute
+  sig_mat <- tumor_scaled[found, , drop = FALSE]
+  sig_imputed <- sig_mat
+  for (i in seq_len(nrow(sig_imputed))) {
+    idx <- which(is.na(sig_imputed[i, ]))
+    if (length(idx) > 0) {
+      sig_imputed[i, idx] <- median(as.numeric(sig_imputed[i, ]), na.rm = TRUE)
+    }
+  }
+  
+  # Align coefficients to match available proteins
+  coeffs <- sig_df$Coefficient[match(found, sig_df$Protein)]
+  
+  # Risk scores
+  validation <- as.data.frame(t(sig_imputed))
+  colnames(validation) <- found
+  validation$RiskScore <- as.matrix(validation) %*% coeffs
+  validation$SampleID <- rownames(validation)
+  
+  cat("RiskScore summary:\n")
+  print(summary(validation$RiskScore))
+  
+  # Save
+  outfile <- paste0("tong_validation_", sig_label, ".csv")
+  write.csv(validation, here("Data", "Tong-PDA", outfile), row.names = FALSE)
+  cat("Saved to Data/Tong-PDA/", outfile, "\n", sep = "")
 }
-cat("Remaining NAs:", any(is.na(sig_imputed)), "\n")
-```
-
----
-
-## 5. Calculate Risk Scores & Save
-
-```{r save}
-# Transpose
-validation <- as.data.frame(t(sig_imputed))
-colnames(validation) <- found
-
-# Align coefficients
-coeffs <- signature_df$Coefficient[match(found, signature_df$Protein)]
-cat("Alignment OK:", all(colnames(validation) == found), "\n")
-
-# Risk scores
-validation$RiskScore <- as.matrix(validation) %*% coeffs
-validation$SampleID <- rownames(validation)
-
-cat("RiskScore summary:\n")
-print(summary(validation$RiskScore))
-
-write.csv(validation, "tong_validation_data_prepared.csv", row.names=FALSE)
-write.csv(as.data.frame(t(sig_imputed)), "tong_signature_proteins_scaled.csv", row.names=TRUE)
-cat("\nSaved.\n")
 ```
 
 ---
@@ -150,8 +141,9 @@ cat("\nSaved.\n")
 ## Summary
 
 ```{r summary}
-cat("Tong validation data prepared.\n")
-cat("Samples:", nrow(validation), "tumors\n")
-cat("Signature proteins:", length(found), "/ 18\n")
-cat("Missing:", if(length(missing)>0) paste(missing,collapse=", ") else "none", "\n")
+cat("Tong validation data prepared for:\n")
+for (sig_label in sig_labels) {
+  outfile <- paste0("tong_validation_", sig_label, ".csv")
+  cat("  -", sig_label, ":", outfile, "\n")
+}
 ```

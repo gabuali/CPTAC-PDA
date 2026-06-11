@@ -1,0 +1,3 @@
+"Signature","N_Proteins_Original","N_Proteins_Validated","Missing_Proteins","N_Patients","HR","HR_Lower","HR_Upper","HR_pval","C_Index","LogRank_pval"
+"Tong >=80% Signature",20,20,"",57,1.356,0.505,3.643,"0.5457",0.51,"0.6043"
+"Both Cohorts >=80% Signature",17,17,"",121,1.475,0.969,2.245,"0.06967",0.585,"0.4505"
