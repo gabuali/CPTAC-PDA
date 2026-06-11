@@ -24,6 +24,7 @@ The purpose of this analysis is to find a molecular signature that is an indepen
 │   ├── MOFA_models/          # Trained MOFA HDF5 models
 │   ├── PurIST_Classification_Results.csv  # Basal/Classical subtype calls
 │   ├── 11_check_leading_edge_coverage.html
+│   ├── 12_find_discriminatory_signature.html
 │   ├── 15_prepare_tong_validation_data.html
 │   ├── 16_tong_validation_survival_analysis.html
 │   ├── factor2_under_the_hood.html
