@@ -128,7 +128,14 @@ Two Lasso-Cox signatures (Tong ≥80% and Both Cohorts ≥80%) are validated usi
 
 **Raw RNA-seq:** Available from the [Genome Sequence Archive for Human (GSA-Human)](https://ngdc.cncb.ac.cn/gsa-human/browse/HRA002195) under accession HRA002195
 
-**Validation Results:**
+**Discovery Results (CPTAC):**
+| Signature | Proteins | C-index | HR (95% CI) | p-value | AUC (1yr) | AUC (2yr) |
+|-----------|----------|---------|-------------|---------|-----------|-----------|
+| Full Leading Edge | 21 | 0.730 | 4.44 (3.14-6.27) | 2.9e-17 | 0.794 | 0.817 |
+| Tong ≥80% | 20 | 0.707 | 4.98 (3.27-7.57) | 6.6e-14 | 0.767 | 0.796 |
+| Both Cohorts ≥80% | 17 | 0.700 | 4.92 (3.22-7.50) | 1.5e-13 | 0.756 | 0.789 |
+
+**Validation Results (Tong Cohort):**
 | Signature | Proteins Used | C-index | HR (95% CI) | p-value |
 |-----------|--------------|---------|-------------|---------|
 | Tong ≥80% | 20/20 | 0.563 | 2.08 (1.17-3.70) | 0.012 |
@@ -154,7 +161,7 @@ https://ftp.pride.ebi.ac.uk/pride/data/archive/2025/09/PXD059074/
 | `Data/APGI-PDA/APGI_protein_matrix.csv` | Protein-only abundance matrix (step 13 output) |
 | `Data/APGI-PDA/APGI_clinical_metadata.csv` | Clinical metadata subset (step 13 output) |
 
-**Validation Results:**
+**Validation Results (APGI):**
 | Signature | Proteins Used | C-index | HR (95% CI) | p-value |
 |-----------|--------------|---------|-------------|---------|
 | Tong ≥80% | 20/20 | 0.510 | 1.36 (0.51-3.64) | 0.546 |
