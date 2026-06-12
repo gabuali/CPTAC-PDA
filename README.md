@@ -14,11 +14,11 @@ The purpose of this analysis is to find a molecular signature that is an indepen
 ├── Data/
 │   ├── Annotations/          # Gene annotations (GENCODE v22)
 │   ├── APGI-PDA/             # APGI validation data
-│   ├── LinkedOmics_data/     # Transcriptome, proteome, mutation data
+│   ├── LinkedOmics_CPTAC/   # LinkedOmics CPTAC-PDAC data files
 │   ├── Metadata/             # Clinical and sample metadata
 │   ├── MOFA_input/           # Prepared matrices for MOFA
 │   ├── MSigDB_genesets/      # Hallmark gene set collection
-│   ├── RNA_count_tables/     # Raw and normalized RNA counts
+│   ├── PDAC_transcriptomics_RAW_counts_renamed.tsv  # Raw RNA counts (GTEx + TCGA + CPTAC)
 │   └── Tong-PDA/             # Tong et al. validation data
 ├── Results/
 │   ├── MOFA_models/          # Trained MOFA HDF5 models
@@ -94,8 +94,8 @@ Transcriptome and proteome tables from [LinkedOmics CPTAC-PDAC](https://www.link
 
 ### Raw RNAseq
 Downloaded from [GDC Portal - CPTAC-3](https://portal.gdc.cancer.gov/)
-- Merged into `PDAC_transcriptomics_RAW_counts.tsv`
-- Renamed columns with Case IDs: `PDAC_transcriptomics_RAW_counts_renamed.tsv`
+- Merged: `PDAC_transcriptomics_RAW_counts.tsv`
+- Renamed: `Data/PDAC_transcriptomics_RAW_counts_renamed.tsv`
 
 ### Proteomics
 Downloaded from [PDC Study PDC000270](https://pdc.cancer.gov/pdc/study/PDC000270)
