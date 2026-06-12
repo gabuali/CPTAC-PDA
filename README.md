@@ -12,7 +12,7 @@ The purpose of this analysis is to find a molecular signature that is an indepen
 
 ```
 ├── Data/
-│   ├── Annotations/          # Gene annotations (GENCODE v22)
+│   ├── Annotations/          # Gene annotations (GENCODE v22, GDC reference)
 │   ├── APGI-PDA/             # APGI validation data
 │   ├── LinkedOmics_CPTAC/   # LinkedOmics CPTAC-PDAC data files
 │   ├── Metadata/             # Clinical and sample metadata
